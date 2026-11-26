@@ -143,10 +143,10 @@ tailwind.config = {
       <button id="qr-btn" class="whitespace-nowrap inline-flex items-center gap-2 rounded-full bg-coral-500 hover:bg-coral-600 text-white text-sm font-semibold px-3.5 py-2 transition-colors" aria-label="Show QR code for the audience">
         <i data-lucide="qr-code"></i><span class="hidden sm:inline">Scan to try</span>
       </button>
-      <div class="hidden xl:flex items-center gap-2 pl-2">
+      <a href="#profile" class="hidden xl:flex items-center gap-2 pl-2 rounded-full hover:bg-plum-700 pr-3 py-1" aria-label="Kasia’s profile">
         <svg viewBox="0 0 64 64" class="w-9 h-9" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#22A05A"/><path d="M12 64c2-12 10-18 20-18s18 6 20 18z" fill="#2563EB"/><circle cx="32" cy="29" r="11" fill="#F6C7A1"/><path d="M21 28c0-8 5-13 11-13s11 5 11 13c-3-4-7-6-11-6s-8 2-11 6z" fill="#17202B"/><path d="M19 30a13 13 0 0 1 26 0" fill="none" stroke="#17202B" stroke-width="2.5"/><rect x="17" y="28" width="4" height="7" rx="2" fill="#17202B"/><rect x="43" y="28" width="4" height="7" rx="2" fill="#17202B"/><circle cx="28" cy="30" r="1.3" fill="#17202B"/><circle cx="36" cy="30" r="1.3" fill="#17202B"/><path d="M29 34q3 2 6 0" fill="none" stroke="#17202B" stroke-width="1.4" stroke-linecap="round"/></svg>
         <span class="text-xs leading-tight"><b class="block">Kasia</b><span class="text-plum-200">Zone B team</span></span>
-      </div>
+      </a>
     </div>
   </div>
 </header>
@@ -189,7 +189,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
   del(k) { try { localStorage.removeItem(k); } catch (e) {} }
 };
-const vibrate = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const vibrate = p => { try { if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(p); } catch (e) {} };
 const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- office model (slide 7 + updated map, slide 16) ---------- */
@@ -257,6 +257,7 @@ const state = {
   step: 0, mode: 'after', autoplay: null,
   mgrZone: 'B',
   pilot: store.get('bl.pilot', 'waiting'),
+  prefs: Object.assign({ watch: true, phone: true, calls: true, zone: true, release: true }, store.get('bl.prefs', {})),
   alertSince: addMin(now0, -17)
 };
 state.days.forEach((d, i) => state.occ[dayKey(d)] = genDay(dayKey(d), i === 0));
@@ -323,21 +324,21 @@ const TABS = [
   { id: 'book', label: 'Book a desk', short: 'Book', icon: 'map' },
   { id: 'day', label: 'Kasia’s day', short: 'Her day', icon: 'clock' },
   { id: 'manager', label: 'Manager', short: 'Manager', icon: 'layout-dashboard' },
-  { id: 'project', label: 'Our project', short: 'Project', icon: 'presentation' }
+  { id: 'profile', label: 'Profile', short: 'Profile', icon: 'user' }
 ];
 function renderNav() {
   $('#topnav').innerHTML = TABS.map(t => `<a href="#${t.id}" class="whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-medium transition-colors ${state.view === t.id ? 'bg-cream-50 text-plum-800' : 'text-plum-100 hover:bg-plum-700'}" ${state.view === t.id ? 'aria-current="page"' : ''}>${t.label}</a>`).join('');
   $('#bottomnav').innerHTML = TABS.map(t => `<a href="#${t.id}" class="flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${state.view === t.id ? 'text-plum-800' : 'text-plum-400'}" ${state.view === t.id ? 'aria-current="page"' : ''}><span class="text-xl ${state.view === t.id ? 'bg-teal-100 rounded-full px-4 py-0.5' : 'px-4 py-0.5'}"><i data-lucide="${t.icon}"></i></span>${t.short}</a>`).join('');
 }
 function route() {
-  const h = (location.hash || '#book').slice(1);
+  let h = (location.hash || '#book').slice(1); if (h === 'project') h = 'profile';
   state.view = TABS.some(t => t.id === h) ? h : 'book';
   if (state.view !== 'day') stopAutoplay();
   render(); window.scrollTo({ top: 0 });
 }
 function render() {
   renderNav();
-  const v = { book: viewBook, day: viewDay, manager: viewManager, project: viewProject }[state.view];
+  const v = { book: viewBook, day: viewDay, manager: viewManager, profile: viewProfile }[state.view];
   $('#view').innerHTML = v();
   icons(); after[state.view] && after[state.view]();
   $('#live-count').textContent = bookedCount();
@@ -885,40 +886,94 @@ function exportReport() {
 }
 
 /* =========================================================
-   VIEW 4 · Our project (everything from the deck)
+   VIEW 4 · Profile (Kasia's settings, rules, privacy, about)
    ========================================================= */
-const H2 = (t, sub = '') => `<h2 class="font-display font-bold text-2xl sm:text-3xl leading-tight">${t}</h2>${sub ? `<p class="text-plum-600 mt-1 max-w-2xl">${sub}</p>` : ''}`;
-const table = (head, rows, cls = '') => `<div class="overflow-x-auto -mx-4 px-4"><table class="w-full min-w-[640px] text-sm ${cls}"><thead><tr class="text-left text-plum-500">${head.map(h => `<th class="font-semibold py-2 pr-4 border-b-2 border-plum-800">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="align-top border-b border-plum-800/10">${r.map((c, i) => `<td class="py-3 pr-4 ${i === 0 ? 'font-semibold' : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-const PARTS = [
-  { id: 'p1', n: 1, short: 'Case', q: 'What goes wrong at Brightline?', sub: 'The case, 7 problem groups and what we fix first', title: 'Case and ideas', lead: 'The case, 26 notes and 7 problems, priorities, technologies, the map and Kasia’s day.' },
-  { id: 'p2', n: 2, short: 'Solution', q: 'What does Kasia actually use?', sub: 'Devices, our screens and what we changed after testing', title: 'Solution in practice', lead: 'Devices, our screens, the practicality check and what we changed.' },
-  { id: 'p3', n: 3, short: 'Deployment', q: 'How do we bring it in?', sub: 'Pilot, evaluation, risks, costs and growth', title: 'Evaluation and deployment', lead: 'Pilot, requirements, the evaluation loop, risks, costs and growth.' },
-  { id: 'p4', n: 4, short: 'Conclusion', q: 'What should you decide today?', sub: 'Our advice, the limits and what we would change', title: 'Conclusion', lead: 'Kasia before and after, why do it, the first step and the limits.' }
+const PREFS = [
+  ['watch', 'watch', 'Break reminder on my watch', 'Two short vibrations after about 70 minutes of sitting.'],
+  ['phone', 'smartphone', 'No watch? Remind me on my phone', 'The same reminder, as a phone notification.'],
+  ['calls', 'phone-off', 'Wait until calls and meetings end', 'Connected to your calendar, so nothing buzzes during a client call.'],
+  ['zone', 'bell-ring', 'Zone alerts', 'Only if your zone stays loud or stuffy for 15 min. At most once an hour.'],
+  ['release', 'clock', 'Warn me before my desk is released', '10 min before, if you have not checked in.']
 ];
-function partHead(n) {
-  const p = PARTS[n - 1];
-  return `<div class="mb-8"><p class="text-coral-500 font-semibold">Part ${n} of 4</p><h2 class="font-display font-extrabold text-4xl sm:text-5xl leading-none mt-2">${p.title}</h2><p class="text-plum-600 mt-3 max-w-2xl">${p.lead}</p>
-    <ol class="mt-5 grid grid-cols-4 gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold" aria-label="Progress">${PARTS.map(x => `<li class="rounded-lg sm:rounded-xl px-2 sm:px-4 py-2 sm:py-3 ${x.n === n ? 'bg-coral-500 text-white' : x.n < n ? 'bg-white text-plum-400' : 'bg-white'}" ${x.n === n ? 'aria-current="step"' : ''}>${x.n}<span class="hidden sm:inline"> ${x.short}</span></li>`).join('')}</ol></div>`;
+const toggle = (id, on, label) => `<button data-pref="${id}" role="switch" aria-checked="${on}" aria-label="${label}" class="relative shrink-0 w-12 h-7 rounded-full transition-colors ${on ? 'bg-coral-500' : 'bg-plum-200'}"><span class="absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : ''}"></span></button>`;
+function viewProfile() {
+  const k = todayKey(); const b = state.mine[k];
+  const mates = TEAM.map(n => ({ n, id: DESKS.find(d => teammateAt(d, k) === n) || null }));
+  const p = state.prefs;
+  return `<section class="grid lg:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
+    <div class="space-y-4 lg:sticky lg:top-24">
+      <div class="rounded-3xl bg-plum-800 text-cream-50 p-6">
+        <div class="flex items-center gap-4">${KASIA_AVATAR('w-16 h-16 shrink-0')}<div><h1 class="font-display font-extrabold text-2xl leading-tight">Kasia, 29</h1><p class="text-sm text-plum-200">Customer service, zone B team</p></div></div>
+        <p class="text-sm text-plum-200 mt-4">8:00 to 16:00, in the office 3 days a week</p>
+        <div class="mt-4 rounded-2xl bg-plum-700 p-4 flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-coral-500 grid place-items-center text-lg"><i data-lucide="${b ? 'calendar-check' : 'calendar'}"></i></span><span class="text-sm flex-1">${b ? `<b class="block">Today: desk ${b.desk}</b>${b.checkedIn ? 'Checked in' : 'Not checked in yet'}` : '<b class="block">No desk today</b>Book one on the map'}</span><a href="#book" class="text-sm font-semibold underline underline-offset-2">${b ? 'Open' : 'Book'}</a></div>
+      </div>
+      <div class="rounded-3xl bg-white p-5">
+        <h2 class="font-display font-bold text-lg">My desk settings</h2>
+        <p class="text-sm text-plum-500">Saved to your account. Any smart desk loads them when you check in.</p>
+        <dl class="mt-3 grid grid-cols-2 gap-2">
+          <div class="rounded-2xl bg-cream-100 p-3"><dt class="text-xs text-plum-500 flex items-center gap-1"><i data-lucide="armchair"></i>Sitting</dt><dd class="font-display font-extrabold text-2xl">${HEIGHT.sit} cm</dd></div>
+          <div class="rounded-2xl bg-cream-100 p-3"><dt class="text-xs text-plum-500 flex items-center gap-1"><i data-lucide="arrow-up"></i>Standing</dt><dd class="font-display font-extrabold text-2xl">${HEIGHT.stand} cm</dd></div>
+        </dl>
+        <button data-act="tip" class="mt-3 w-full rounded-full border-2 border-plum-800 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2"><i data-lucide="monitor"></i>Chair and monitor tip</button>
+      </div>
+      <div class="rounded-3xl bg-white p-5">
+        <div class="flex items-center justify-between"><h2 class="font-display font-bold text-lg">My team today</h2><a href="#book" data-act="show-team" class="text-sm font-semibold text-coral-500">Show on map</a></div>
+        <ul class="mt-3 space-y-2">${mates.map(m => `<li class="flex items-center gap-3 text-sm"><span class="w-8 h-8 rounded-full ${m.id ? 'bg-sun-400' : 'bg-cream-100 text-plum-400'} grid place-items-center font-bold">${m.n[0]}</span><b class="${m.id ? '' : 'text-plum-400'}">${m.n}</b><span class="ml-auto ${m.id ? '' : 'text-plum-400'}">${m.id ? `Desk ${m.id}` : 'Not in today'}</span></li>`).join('')}</ul>
+      </div>
+    </div>
+
+    <div class="space-y-4 min-w-0">
+      <div class="rounded-3xl bg-white p-5 sm:p-6">
+        <h2 class="font-display font-bold text-lg">Reminders and alerts</h2>
+        <ul class="mt-2 divide-y divide-plum-800/5">${PREFS.map(([id, ic, l, d]) => `<li class="py-3 flex items-center gap-4"><span class="w-10 h-10 rounded-xl bg-cream-100 grid place-items-center text-lg text-plum-600 shrink-0"><i data-lucide="${ic}"></i></span><span class="flex-1 min-w-0"><b class="block text-sm">${l}</b><span class="text-sm text-plum-500">${d}</span></span>${toggle(id, p[id], l)}</li>`).join('')}</ul>
+      </div>
+
+      <div class="rounded-3xl bg-white p-5 sm:p-6">
+        <h2 class="font-display font-bold text-lg">How booking works</h2>
+        <ul class="mt-3 grid sm:grid-cols-2 gap-3 text-sm">${[
+          ['calendar-check', 'One desk per day', 'Book the day before or in the morning. Your team is shown with a T on the map.'],
+          ['nfc', 'Check in with one tap', 'Hold your phone or work card near the desk unit. The desk moves to your height.'],
+          ['timer', 'Unused desks are released', 'After 30 min without check-in, with a warning 10 min before.'],
+          ['phone', 'Booths for calls', 'Up to 30 min per booking. Empty booths are released.'],
+          ['leaf', 'Quiet zone', 'Desks by the windows, no calls. Suggested when your zone gets loud.'],
+          ['hand', 'Wi‑Fi down?', 'Desks still work by hand, and the office manager gives out desks.']
+        ].map(([ic, t, d]) => `<li class="rounded-2xl bg-cream-100 p-4 flex gap-3"><i data-lucide="${ic}" class="text-lg text-coral-500 mt-0.5"></i><span><b class="block">${t}</b><span class="text-plum-600">${d}</span></span></li>`).join('')}</ul>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-3xl bg-white p-5 sm:p-6">
+          <h2 class="font-display font-bold text-lg flex items-center gap-2"><i data-lucide="shield-check" class="text-free"></i>Your data</h2>
+          <p class="text-sm font-semibold mt-3">Measured, per zone</p><p class="text-sm text-plum-600">Noise level, CO₂, temperature and light.</p>
+          <p class="text-sm font-semibold mt-3">Never collected</p><p class="text-sm text-plum-600">Voices or what people say. Your watch data stays on your phone.</p>
+          <p class="text-sm font-semibold mt-3">What your manager sees</p><p class="text-sm text-plum-600">Only anonymous trends for groups of 5 or more people, never one person.</p>
+        </div>
+        <div class="rounded-3xl bg-white p-5 sm:p-6">
+          <h2 class="font-display font-bold text-lg">Connected</h2>
+          <ul class="mt-3 space-y-2.5 text-sm">${[['arrow-up-down', 'Smart desks', 'GoBright Connect'], ['activity', 'Room sensors', 'Airthings, one per zone'], ['phone', 'Phone booths', '4 Framery booths'], ['watch', 'My watch', p.watch ? 'Connected, optional' : 'Off, using the phone']].map(([ic, t, d], i) => `<li class="flex items-center gap-3"><span class="w-9 h-9 rounded-xl bg-plum-800 text-teal-300 grid place-items-center"><i data-lucide="${ic}"></i></span><span class="flex-1"><b class="block">${t}</b><span class="text-plum-500">${d}</span></span><span class="w-2.5 h-2.5 rounded-full ${i === 3 && !p.watch ? 'bg-plum-300' : 'bg-free'}" aria-hidden="true"></span></li>`).join('')}</ul>
+        </div>
+      </div>
+
+      <div class="rounded-3xl bg-plum-800 text-cream-50 p-5 sm:p-6 flex flex-wrap items-center gap-4">
+        <div class="flex-1 min-w-[220px]">
+          <h2 class="font-display font-bold text-lg">About Brightline</h2>
+          <p class="text-sm text-plum-200 mt-1">One app for smart desks, room sensors and phone booths, so 120 people can share 80 desks without the morning hunt.</p>
+          <p class="text-sm mt-3">Designed and built by <b>Ewelina Mruk</b> and <b>Hania Twardyk</b></p>
+          <p class="text-xs text-plum-300 mt-1">Fundamentals of HCI, wearables project, group D, 2026/2027</p>
+        </div>
+        <div class="flex gap-2"><button data-act="qr" class="rounded-full bg-coral-500 hover:bg-coral-600 px-4 py-2.5 text-sm font-semibold inline-flex items-center gap-2"><i data-lucide="qr-code"></i>Share app</button><button data-act="reset" class="rounded-full border border-plum-500 px-4 py-2.5 text-sm font-semibold hover:bg-plum-700">Reset demo</button></div>
+      </div>
+    </div>
+  </section>`;
 }
-const DAY_PLAN = [
-  ['7:50', 'Arrives, leaves her coat in the locker. Problem: her booked desk is taken.', 'G6'],
-  ['8:00', 'Finds another free desk and starts work. Problem: chair and monitor not adjusted.', 'G1'],
-  ['8:15–10:00', 'Emails and client calls. Problem: neighbour on a call, hard to focus, clients hear noise.', 'G2'],
-  ['10:00', 'Online team meeting from her desk. Problem: disturbs others, noise.', 'G2'],
-  ['11:00', 'Needs to ask a teammate something. Problem: doesn’t know where the team sits.', 'G5'],
-  ['12:30', 'Eats a sandwich at the desk. Problem: skips a real break.', 'G3'],
-  ['13:00–15:00', 'Calls, more emails. Problem: hasn’t stood up or drunk water since morning; stuffy air.', 'G3 G4'],
-  ['15:00', 'Feels tired, has a headache, eyes hurt. Problem: symptom of G1–G4.', ''],
-  ['16:00', 'Leaves. Problem: manager sees nothing until sick leave rises.', 'G7']
-];
-const SCENARIOS = [
-  { t: 'Scenario A: morning arrival', g: 'G6, G1, G5', steps: ['Kasia booked a desk in team zone B in the app the day before.', 'At 7:50 her desk is free, because unused bookings are released automatically.', 'She checks in with her phone, and the desk moves to her saved sitting height.', 'The check-in screen shows a tip: “Chair: lower the seat, monitor: raise to eye level.”', 'On the office map she sees her teammate Tomek two desks away, so she walks over instead of writing messages.'] },
-  { t: 'Scenario B: afternoon tiredness', g: 'G3, G4, G2', steps: ['At 13:40 Kasia has been sitting for 70 minutes without a break.', 'Her smartwatch vibrates: “Have a break.” It waits until her client call ends, because it is connected to her calendar.', 'She raises the desk to standing height with one button.', 'The sensor in zone B shows high CO₂ and noise. The office manager gets a “ventilate zone B” alert, and the app suggests free desks in the quiet zone.', 'For her next client call Kasia books a phone booth, so the client no longer hears background noise.', 'At 15:00 she feels better, with no afternoon headache.'] }
-];
-function heroGrid() {
-  const k = todayKey(); const ids = [...desksOf('A').slice(0, 16), ...desksOf('B').slice(0, 20)];
-  return ids.map(id => { const st = status(id, k); const c = id === 'B12' ? 'bg-coral-500 text-white' : st === 'free' ? 'bg-free' : st === 'mine' ? 'bg-coral-500' : 'bg-taken'; return `<button data-go="#book" class="h-8 sm:h-9 rounded-md ${c} text-[11px] font-bold" aria-label="Desk ${id}, ${id === 'B12' ? 'Kasia' : st}">${id === 'B12' ? 'B12' : ''}</button>`; }).join('');
+function setPref(id) {
+  state.prefs[id] = !state.prefs[id]; store.set('bl.prefs', state.prefs);
+  const el = $(`[data-pref="${id}"]`); const on = state.prefs[id];
+  if (el) { el.setAttribute('aria-checked', on); el.classList.toggle('bg-coral-500', on); el.classList.toggle('bg-plum-200', !on); el.firstElementChild.classList.toggle('translate-x-5', on); }
+  vibrate(15);
+  const name = PREFS.find(x => x[0] === id)[2];
+  toast({ title: `${name}: ${on ? 'on' : 'off'}`, icon: on ? 'bell' : 'bell-off', tone: 'info' });
 }
+
 function pilotCard() {
   const st = state.pilot;
   const chip = { waiting: ['bg-sun-100 text-[#7A4F00]', 'Waiting for approval'], approved: ['bg-free/15 text-free', 'Approved'], notyet: ['bg-plum-100 text-plum-600', 'Not yet'] }[st];
@@ -950,196 +1005,6 @@ function setPos(pos) {
   requestAnimationFrame(step);
   toast({ title: pos === 'stand' ? `Desk rising to ${HEIGHT.stand} cm` : `Desk back to ${HEIGHT.sit} cm`, body: pos === 'stand' ? 'One button. Standing for a while helps after a long call.' : 'Your saved sitting height.', icon: 'move-vertical' });
 }
-function viewProject() {
-  const parts = PARTS;
-  const groups = [
-    ['G1', 'Top priority', 'Unadjusted workstation', ['1 chair never adjusted', '2 monitor at wrong height', '3 no time to set up the desk', '4 don’t know correct settings', '5 neck bent over laptop', '6 back pain increasing']],
-    ['G2', 'Top priority', 'Noise, lack of focus', ['7 neighbour always on a call', '8 too loud to concentrate', '9 online meetings at open desk', '10 no free quiet rooms', '11 clients hear background noise']],
-    ['G3', 'Quick win', 'Sitting without breaks', ['12 no standing up for hours', '13 forget to drink water', '14 skipping lunch break']],
-    ['G4', 'Quick win', 'Poor office environment', ['17 stuffy air', '18 screen glare, bad lighting']],
-    ['G5', 'Quick win', 'Organisation problems', ['21 where does my team sit?', '22 who is in the office?', '26 manager can’t see wellbeing']],
-    ['G6', 'Do soon', 'Morning desk hunting', ['23 not enough desks (80/120)', '24 desks taken without booking']],
-    ['G7', 'Do soon', 'Wellbeing noticed too late', ['seen only when sick leave rises', 'anonymous team data only']]
-  ];
-  const prioC = { 'Top priority': 'bg-taken text-white', 'Quick win': 'bg-teal-400 text-plum-900', 'Do soon': 'bg-sun-400 text-plum-900' };
-  return `<div class="grid lg:grid-cols-[200px_minmax(0,1fr)] gap-8">
-  <nav class="hidden lg:block" aria-label="Parts"><ol class="sticky top-24 space-y-1 text-sm">${parts.map(p => `<li><a href="#${p.id}" data-jump="${p.id}" class="block rounded-xl px-3 py-2 hover:bg-white"><span class="text-coral-500 font-semibold">${p.n} ${p.short}</span><b class="block leading-snug">${p.q}</b></a></li>`).join('')}</ol></nav>
-  <div class="min-w-0 space-y-16">
-    <section class="rounded-[28px] bg-plum-800 text-cream-50 p-6 sm:p-10 grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-8 items-center">
-      <div>
-        <p class="text-plum-300 text-sm font-medium">Fundamentals of HCI, wearables project, group D</p>
-        <h1 class="font-display font-extrabold text-4xl sm:text-6xl leading-[1.02] mt-5">120 people,<br>80 desks,<br>one booking tap</h1>
-        <p class="text-plum-200 text-lg mt-5 max-w-md">How Brightline can end morning desk hunting, noise and afternoon headaches with products that already exist.</p>
-        <p class="mt-8 text-sm text-plum-300">By <b class="text-cream-50">Ewelina Mruk</b> and <b class="text-cream-50">Hania Twardyk</b></p>
-      </div>
-      <div>
-        <div class="rounded-2xl bg-plum-700 p-4 grid grid-cols-6 gap-2" aria-label="Today in zones A and B">${heroGrid()}</div>
-        <div class="flex flex-wrap gap-4 mt-3 text-sm text-plum-200"><span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-free"></span>Free</span><span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-taken"></span>Taken</span><span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-coral-500"></span>Kasia, B12</span></div>
-      </div>
-    </section>
-
-    <section aria-labelledby="agenda-h">
-      <p class="text-coral-500 font-semibold">Our plan for today</p>
-      <h2 id="agenda-h" class="font-display font-extrabold text-3xl sm:text-4xl leading-tight mt-1">Four questions, one working day</h2>
-      <p class="text-plum-600 mt-2 max-w-2xl">We follow Kasia from customer service through one Thursday at Brightline, and answer four questions on the way.</p>
-      <ol class="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        ${parts.map(p => `<li><a href="#${p.id}" data-jump="${p.id}" class="block h-full rounded-2xl bg-white p-5 ring-2 ring-transparent hover:ring-coral-500 transition-shadow"><span class="inline-block rounded-md bg-plum-800 text-cream-50 text-xs font-bold px-2.5 py-1">Part ${p.n}</span><b class="block font-display text-lg leading-snug mt-3">${p.q}</b><span class="block text-sm text-plum-500 mt-1">${p.sub}</span></a></li>`).join('')}
-      </ol>
-    </section>
-
-    <section id="p1" class="scroll-mt-24 space-y-10">
-      <div>${partHead(1)}${H2('Brightline: 120 people, 80 desks', 'We chose Case B: hot desking causes problems for almost everyone, every day. Unadjusted desks, noise, no breaks, not knowing where the team sits. Most of it can be fixed with existing technology.')}</div>
-      <div class="grid grid-cols-3 xl:grid-cols-[repeat(3,minmax(0,1fr))_1.3fr] gap-2 sm:gap-3">
-        ${[['120', 'employees share one office'], ['80', 'desks, booked in an old app'], ['0', 'sensors or phone booths']].map(([n, l]) => `<div class="rounded-3xl bg-white p-4 sm:p-5"><p class="font-display font-extrabold text-4xl sm:text-5xl text-coral-500">${n}</p><p class="text-xs sm:text-sm text-plum-600 mt-1">${l}</p></div>`).join('')}
-        <div class="col-span-3 xl:col-span-1 rounded-3xl bg-[#FDE2E2] p-5 flex gap-4 items-start">${KASIA_AVATAR('w-14 h-14 shrink-0')}<div><p class="font-display font-semibold text-lg">Kasia, 29</p><p class="text-sm text-plum-700">Customer service, 8:00 to 16:00, in the office 3 days a week. She answers client calls and emails and joins online meetings. We follow her through the whole presentation.</p></div></div>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">26 notes, 7 problem groups</h3>
-        <div class="mt-4 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">${groups.map(([g, p, t, notes]) => `<article class="rounded-3xl bg-white p-5"><div class="flex items-center justify-between"><span class="font-display font-extrabold text-2xl">${g}</span><span class="rounded-full px-2.5 py-1 text-xs font-semibold ${prioC[p]}">${p}</span></div><h4 class="font-semibold mt-2">${t}</h4><ul class="mt-2 text-sm text-plum-600 space-y-0.5">${notes.map(n => `<li>${n}</li>`).join('')}</ul></article>`).join('')}
-          <article class="rounded-3xl border-2 border-dashed border-plum-300 p-5 text-sm"><p class="font-semibold">Symptoms, not a group</p><p class="text-plum-600 mt-1">15, 16 eye strain and headaches come from G1 to G4, so fixing those fixes the headaches.</p><p class="font-semibold mt-3">Dropped, no tech needed</p><p class="text-plum-600 mt-1">19, 20 lost documents: clean desk policy. 25 lockers far away: office layout.</p></article>
-        </div>
-      </div>
-      <div class="grid md:grid-cols-3 gap-3">
-        <div class="rounded-3xl bg-taken/10 p-5 md:col-span-1"><p class="text-sm text-plum-500">How serious × how often</p><p class="font-display font-bold text-2xl mt-1">Top priority: G1 + G2</p><p class="text-sm text-plum-700 mt-1">The desk and the noise: serious and every day, for everyone.</p></div>
-        <div class="rounded-3xl bg-white p-5 md:col-span-2"><p class="font-semibold">Similar problems, one technology</p><ul class="mt-3 grid sm:grid-cols-3 gap-3 text-sm">${[['G1 + G3', 'Smart desk', 'arrow-up-down'], ['G2 + G4', 'Room sensors', 'activity'], ['G5 + G6', 'Booking app with a map', 'map']].map(([g, t, i]) => `<li class="rounded-2xl bg-cream-100 p-3"><i data-lucide="${i}" class="text-xl text-plum-500"></i><b class="block mt-2">${g}</b>${t}</li>`).join('')}</ul></div>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">What we chose and why</h3>
-        <div class="mt-3">${table(['Problem', 'Technology', 'Real product', 'Why'], [
-          ['G1 + G3', 'Smart sit-stand desk, linked to the booking app', 'GoBright Connect (desks with LINAK motors)', 'The desk remembers the person: you save your height, any desk adjusts at check-in'],
-          ['G2 + G4', 'Room sensors: noise, CO₂, temperature, light', 'Airthings Space CO2 Mini', 'Noise and bad air are invisible until you get a headache. One device, several problems'],
-          ['G2', 'Bookable phone booths and quiet rooms', 'Framery booths, in the same app', 'Calls are the cause: move them out instead of only blocking with headphones'],
-          ['G3', 'Smartwatch or band (worn)', 'Apple Watch, Fitbit, Garmin', 'Always with you, a vibration is private. Voluntary only'],
-          ['G5 + G6', 'Booking app with office map and desk presence', 'GoBright app, LED ring turns red', 'One system: “where is a free desk?” and “where is my team?”'],
-          ['G7', 'Anonymous dashboard (software)', 'Built from the data above', 'The data already exists. Team trends only, never one person']])}</div>
-        <p class="text-sm text-plum-500 mt-3">Not chosen: EEG headband (uncomfortable, very personal data), VR, AR and MR (not needed for desk work), EMG band (meant for lifting).</p>
-      </div>
-      <div class="grid md:grid-cols-2 gap-6 items-start">
-        <div><h3 class="font-display font-semibold text-xl">One open-space floor</h3><p class="text-sm text-plum-600 mt-1">Entrance, lockers, desk, then booths, kitchen and meeting rooms during the day. One noise, CO₂ and light sensor per zone.</p><a href="#book" class="mt-4 inline-flex items-center gap-2 rounded-full bg-plum-800 text-cream-50 px-5 py-2.5 text-sm font-semibold"><i data-lucide="map"></i>Open the live map</a></div>
-        <ul class="grid grid-cols-2 gap-2 text-sm">${[['Zone A', 'Team desks', 'tone-sand'], ['Zone B', 'Kasia, customer service', 'tone-mint'], ['Zone C', 'Team desks', 'tone-sand'], ['Zone D', 'Team desks', 'tone-sand'], ['Quiet zone', 'By the windows, no calls', 'tone-lav'], ['Call zone', '4 booths + 2 rooms', 'tone-blush'], ['Kitchen', 'Water, coffee, lunch', 'tone-sand'], ['Entrance', 'Lockers, exits', 'tone-sand']].map(([a, b, c]) => `<li class="${c} rounded-2xl p-3"><b class="font-display block">${a}</b><span class="text-plum-600">${b}</span></li>`).join('')}</ul>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Our day plan and scenarios</h3>
-        <div class="mt-4 grid lg:grid-cols-2 gap-3 items-start">
-          <div class="rounded-3xl bg-white p-5"><p class="font-semibold">Kasia’s day and where the problems appear</p>
-            <ol class="mt-3 space-y-2.5 text-sm">${DAY_PLAN.map(([t, d, g]) => `<li class="grid grid-cols-[84px_1fr] gap-2"><b class="tabular-nums">${t}</b><span>${d} ${g ? `<span class="text-taken font-semibold whitespace-nowrap">${g}</span>` : ''}</span></li>`).join('')}</ol></div>
-          <div class="space-y-3">${SCENARIOS.map(sc => `<div class="rounded-3xl bg-white p-5"><p class="font-semibold">${sc.t} <span class="text-plum-500 font-normal">(${sc.g})</span></p><ol class="mt-3 space-y-2 text-sm list-decimal pl-5 marker:text-coral-500 marker:font-bold">${sc.steps.map(x => `<li>${x}</li>`).join('')}</ol></div>`).join('')}</div>
-        </div>
-        <a href="#day" class="mt-4 inline-flex items-center gap-2 rounded-full bg-plum-800 text-cream-50 px-5 py-2.5 text-sm font-semibold"><i data-lucide="play"></i>Play Kasia’s day</a>
-      </div>
-    </section>
-
-    <section id="p2" class="scroll-mt-24 space-y-10">
-      <div>${partHead(2)}${H2('We connect products that already exist', 'What we build ourselves is only the connection: one GoBright app instead of Brightline’s old booking app.')}</div>
-      <ul class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">${[['arrow-up-down', 'Smart desk + GoBright Connect', 'Tap your phone or work card and the desk goes to your height'], ['activity', 'Airthings sensors', 'One per zone, noise and CO₂, the battery lasts for years'], ['phone', '4 Framery booths', 'Quiet calls, booked in the same app'], ['watch', 'Own smartwatch', 'Optional break reminder. No watch: the phone'], ['layout-dashboard', 'Manager dashboard', 'Zones, “ventilate” alerts, anonymous trends']].map(([i, t, d]) => `<li class="rounded-3xl bg-white p-5"><span class="w-11 h-11 rounded-2xl bg-plum-800 text-teal-300 grid place-items-center text-xl"><i data-lucide="${i}"></i></span><p class="font-semibold mt-3">${t}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Version 1, before the check</h3>
-        <p class="text-sm text-plum-600 mt-1">First: LINAK desks, Deskbird app, Jabra headset. Final: one GoBright app, no headset.</p>
-        <div class="mt-3">${table(['Technology', 'Main problem', 'Solution'], [
-          ['Smart sit-stand desk (LINAK)', 'On a hot desk the settings are lost every day', 'The height profile is linked to the booking account and loads after check-in'],
-          ['NFC check-in with the phone', 'Forgotten check-ins and no Wi‑Fi', 'Reminder notification, auto-release; the desk can always be set by hand'],
-          ['Smartwatch reminders', 'Not everyone has a watch, and too many alerts', 'The desk panel gives the same reminder; the watch is optional; max 1 reminder per hour, none during meetings'],
-          ['Air-quality and noise sensors + wall display', 'A red light alone does not fix the air or the noise', 'Sensors connected to the ventilation; staff told what is measured; loud zones link to free booths'],
-          ['Phone booths (Framery)', 'Booths blocked for hours', 'A time limit per booking, visible in the app'],
-          ['Noise-cancelling headset (Jabra)', 'Wearing it all day is tiring', 'Dropped in the final version: calls go to booths, focus work to the quiet zone'],
-          ['Manager dashboard (desktop)', 'Trust: workers feel watched', 'Only anonymous office-level data, no heart rate or activity of single people; rules explained to all staff']])}</div>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Kasia’s screens: phone, watch and computer</h3>
-        <p class="text-sm text-plum-600 mt-1">All four sketches are working screens in this app. The two our deck listed as missing (the chair tip and the booth booking step) are drawn here too.</p>
-        <ul class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">${[['Book a desk', 'Phone, the day before. Green free, red taken, T teammate.', '#book'], ['Break reminder', 'Watch, 13:40, after her call. Done or Later.', 'watch'], ['Zone alert', 'Phone, 14:00. One tap to the quiet zone.', 'alert'], ['Office manager dashboard', 'Live zones, “Zone B: CO₂ high, ventilate”, this week: desk use 82%, booths 64%.', '#manager'], ['Check-in and chair tip', 'One NFC tap, desk at 72 cm, then the chair and monitor tip.', 'checkin'], ['Booth booking', 'Pick a free booth for up to 30 min.', 'booth']].map(([t, d, go], i) => `<li><button data-go="${go}" class="w-full h-full text-left rounded-3xl bg-white p-5 hover:bg-cream-200 transition-colors"><span class="text-xs font-semibold ${i > 3 ? 'text-teal-600' : 'text-plum-500'}">${i < 4 ? 'Screen ' + (i + 1) : 'Added in this app'}</span><b class="block font-display text-lg mt-1">${t}</b><span class="text-plum-600">${d}</span><span class="mt-3 flex items-center gap-1 font-semibold text-plum-800">Try it<i data-lucide="chevron-right"></i></span></button></li>`).join('')}</ul>
-      </div>
-      <div class="grid md:grid-cols-3 gap-3">
-        <div class="rounded-3xl bg-white p-5"><i data-lucide="watch" class="text-2xl text-plum-500"></i><p class="font-display font-semibold text-lg mt-2">Worn: only the watch</p><p class="text-sm text-plum-600">The reminder is about the person and must be private.</p></div>
-        <div class="rounded-3xl bg-white p-5"><i data-lucide="building-2" class="text-2xl text-plum-500"></i><p class="font-display font-semibold text-lg mt-2">Stationary: the rest</p><p class="text-sm text-plum-600">About the place. Works all day, no charging.</p></div>
-        <div class="rounded-3xl bg-taken/10 p-5"><i data-lucide="eye-off" class="text-2xl text-taken"></i><p class="font-display font-semibold text-lg mt-2">Biggest risk: privacy</p><p class="text-sm text-plum-600">So the manager only sees groups of 5 or more.</p></div>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Five changes after the practicality check</h3>
-        <p class="text-sm text-plum-600 mt-1">Simpler, works without a watch, and still solves G1 and G2. Each one is a rule in this app.</p>
-        <ol class="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">${['Reminder from the watch, the phone if there is no watch', 'Check-in is one tap (NFC)', 'Warning 10 min before a desk is released', 'Alerts after 15 min, max 1 an hour', 'Dashboard for 5+ people only; booths max 30 min'].map((t, i) => `<li class="rounded-3xl bg-plum-800 text-cream-50 p-5"><span class="font-display font-extrabold text-3xl text-teal-300">${i + 1}</span><p class="mt-2 text-sm">${t}</p></li>`).join('')}</ol>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Updated map</h3>
-        <div class="mt-3">${table(['Place', 'Part 1', 'Now, after the practicality check'], [
-          ['Entrance', 'Check-in screen and lockers', 'Lockers only. Check-in happens at the desk (tap phone or card, NFC)'],
-          ['Open desk area, zones A–D', '80 smart desks', '80 desks with a GoBright Connect unit; a light shows if a desk is taken; desks nobody checks in to are released after 30 min, with a warning 10 min before'],
-          ['Quiet zone', 'Desks by the windows, no calls', 'Same, and shown on the map with free desks when another zone gets loud'],
-          ['Call zone', '4 phone booths, 2 meeting rooms', '4 Framery booths, max 30 min per booking, empty booths released'],
-          ['Sensors', 'One sensor per zone', 'One Airthings sensor per zone; alert only if it stays loud or stuffy for 15 min, max once an hour'],
-          ['Office manager', '–', 'Dashboard on her computer with anonymous data for groups of 5+ people']])}</div>
-        <a href="#day" class="mt-4 inline-flex items-center gap-2 rounded-full bg-plum-800 text-cream-50 px-5 py-2.5 text-sm font-semibold"><i data-lucide="play"></i>Walk through Kasia’s updated day</a>
-      </div>
-    </section>
-
-    <section id="p3" class="scroll-mt-24 space-y-10">
-      <div>${partHead(3)}${H2('Pilot first, then step by step')}</div>
-      <ol class="relative grid md:grid-cols-4 gap-3">${[['Preparation', 'IT, HR, health and safety, office manager; installation in zone B', '3 weeks', 'Devices work, employees know what data is collected (GDPR)'], ['Pilot', 'Zone B: customer service team, about 30 people, 20 desks, 1 booth', '4 weeks', 'Success criteria from the user requirements are met'], ['Next zones', 'Zones A and C, about 60 people, 2 more booths', '4 weeks', 'Fewer than 5 support requests per week'], ['Whole office', 'Zone D and the rest, all 120 people (also managers and people who work partly from home); old app switched off', 'From week 12', 'Monthly check of data and feedback']].map(([t, w, h, r], i) => `<li class="rounded-3xl ${i === 1 ? 'bg-teal-100' : 'bg-white'} p-5"><div class="flex items-baseline justify-between"><span class="font-display font-extrabold text-3xl">${i}</span><span class="text-sm font-semibold text-plum-500">${h}</span></div><p class="font-display font-semibold text-lg">${t}</p><p class="text-sm text-plum-600 mt-1">${w}</p><p class="text-sm mt-3 pt-3 border-t border-plum-800/10"><span class="text-plum-500">Next phase when</span><br>${r}</p></li>`).join('')}</ol>
-      <div class="grid md:grid-cols-2 gap-3 text-sm"><p class="rounded-2xl bg-white p-4"><b>Not all at once:</b> 80 desks in one go would block the office, and every bug would hit 120 people.</p><p class="rounded-2xl bg-white p-4"><b>Not voluntary first:</b> shared desks need one booking system. Only the watch is optional.</p></div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Five requirements and how we check them</h3>
-        <div class="mt-3">${table(['User requirement', 'How we collect or check it', 'Who we ask'], [
-          ['1. Work without back pain: the desk and chair are set up right every day', 'Before and after questionnaire about back pain (1–5), checking desk settings at check-in, sick-day numbers', 'Employees, HR manager, health and safety specialist'],
-          ['2. No headaches because of noise: quiet enough to focus', 'Noise data from the sensors and a short questionnaire about headaches and noise', 'Employees, HR manager'],
-          ['3. Easy desk booking: book a desk and check in within a minute', 'Observation while people book and check in, and app data (how long it takes)', 'Employees, IT manager'],
-          ['4. Fresh air during the whole day', 'CO₂ data from the sensors and a short questionnaire (“Is the air fresh?”)', 'Employees, office manager, finance manager (ventilation costs)'],
-          ['5. Privacy: sensors measure only noise level and CO₂ (no voices, no tracking of people), managers see only anonymous data', 'Checking with IT what data is collected and stored (GDPR), info meeting before the pilot, a questionnaire item (“Do you feel watched?”)', 'IT manager, health and safety specialist, employee representative, employees']])}</div>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Evaluation is a loop</h3>
-        <ol class="mt-4 flex flex-wrap items-center gap-2">${['Pilot in zone B', 'Measure after week 2', 'Adjust alerts and rules', 'Measure after week 4', 'Sick days after 3 months'].map((t, i, a) => `<li class="flex items-center gap-2"><span class="rounded-full bg-white px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-plum-800 text-cream-50 grid place-items-center text-xs">${i + 1}</span>${t}</span>${i < a.length - 1 ? '<i data-lucide="chevron-right" class="text-plum-300"></i>' : '<i data-lucide="rotate-ccw" class="text-plum-300"></i>'}</li>`).join('')}</ol>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">What could go wrong, and our fix</h3>
-        <div class="mt-3">${table(['Problem', 'Who is affected', 'How we prevent or handle it'], [
-          ['People forget to check in', 'Everyone: desks are released by mistake', 'Short training, a reminder 10 minutes before release, check-in with the work card'],
-          ['Fear of being watched', 'Employees', 'Info meeting before the pilot, sensors measure only the noise level, the manager sees only anonymous data'],
-          ['Wi‑Fi or app is down', 'Everyone in the office', 'Desks can still be adjusted by hand, the office manager gives out desks'],
-          ['No smartwatch or broken device', 'Some employees', 'Reminder on the phone instead, spare desk units, service contract']])}</div>
-        <p class="text-sm text-plum-600 mt-3">If the Wi‑Fi goes down, desks still work by hand. Nobody is left without a desk.</p>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">About €107,500 in year 1</h3>
-        <dl class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">${[['≈ €900', 'per employee in year 1'], ['≈ €6,000', 'a year from year 2'], ['≈ €85,000', 'back a year: less desk hunting, 1 sick day less'], ['≈ 1.3 years', 'to pay for itself']].map(([v, l], i) => `<div class="rounded-3xl ${i === 3 ? 'bg-plum-800 text-cream-50' : 'bg-white'} p-5"><dt class="sr-only">${l}</dt><dd class="font-display font-extrabold text-3xl sm:text-4xl">${v}</dd><p class="text-sm ${i === 3 ? 'text-plum-200' : 'text-plum-600'} mt-1">${l}</p></div>`).join('')}</dl>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">Will it still work in 2–3 years?</h3>
-        <ul class="mt-4 grid sm:grid-cols-3 gap-3">${[['plug', 'Open APIs', 'We swap one part, not the whole system'], ['download', 'Data export', 'Nothing is lost if we change a supplier'], ['hand', 'Desks work by hand', 'Booking is separate from the hardware']].map(([i, t, d]) => `<li class="rounded-3xl bg-white p-5"><i data-lucide="${i}" class="text-2xl text-plum-500"></i><p class="font-display font-semibold text-lg mt-2">${t}</p><p class="text-sm text-plum-600">${d}</p></li>`).join('')}</ul>
-      </div>
-    </section>
-
-    <section id="p4" class="scroll-mt-24 space-y-10">
-      <div>${partHead(4)}${H2('Kasia’s day: before and after')}</div>
-      ${table(['When', 'Before', 'With our solution'], [['7:50', 'Her booked desk is taken', 'Unused bookings released, B12 is free'], ['8:00', 'Desk and chair not adjusted', 'One tap: desk at 72 cm and a chair tip'], ['Calls', 'Clients hear background noise', 'Booth for 30 min or the quiet zone'], ['11:00', 'Where is my team?', 'Tomek on the map'], ['13:40', 'Sitting since the morning', 'Watch: stand up and drink water'], ['14:00', 'Loud, stuffy zone B', 'One alert, the manager ventilates'], ['15:00', 'Headache', 'No headache'], ['Weekly', 'Manager sees nothing', 'Anonymous team trends']].map(r => [r[0], `<span class="text-taken">${r[1]}</span>`, `<span class="text-teal-600 font-semibold">${r[2]}</span>`]))}
-      <div>
-        <h3 class="font-display font-semibold text-xl">Why Brightline should introduce it</h3>
-        <ul class="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${[['G1 + G2', 'It fixes the two top problems: the desk and the noise'], ['5 products', 'Everything can be bought today; we only connect it in one app'], ['≈ 1.3 years', 'To pay back about €107,500. About €85,000 comes back every year'], ['5+ people', 'Only anonymous data for groups of 5+, and the watch is optional']].map(([v, d]) => `<li class="rounded-3xl bg-white p-5"><p class="font-display font-extrabold text-3xl">${v}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
-      </div>
-      <div class="rounded-[28px] bg-plum-800 text-cream-50 p-6 sm:p-10 grid lg:grid-cols-[minmax(0,1fr)_400px] gap-8 items-center">
-        <div><p class="text-plum-300">We ask Brightline’s management for one decision</p><h3 class="font-display font-extrabold text-4xl sm:text-5xl leading-[1.05] mt-3">Book the pilot, not the whole office.</h3><p class="text-plum-200 text-lg mt-4 max-w-md">Four weeks in zone B show if the desk and the noise really get better, before anyone buys 80 desks.</p></div>
-        <div id="pilot-card">${pilotCard()}</div>
-      </div>
-      <div class="rounded-[32px] bg-teal-100 p-6 sm:p-8">
-        <h3 class="font-display font-bold text-2xl">Start with a 4-week pilot in zone B</h3><p class="text-plum-700 mt-1">Not everything at once: first one zone, real work, real data.</p>
-        <ol class="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${['Info meeting and GDPR information', 'Zone B: 20 desks, 1 booth, sensors', 'Measure after week 2 and week 4', 'Next zones only if the targets are met'].map((t, i) => `<li class="rounded-2xl bg-white p-4 flex gap-3"><span class="w-8 h-8 rounded-full bg-plum-800 text-cream-50 grid place-items-center font-bold shrink-0">${i + 1}</span><span class="text-sm font-semibold">${t}</span></li>`).join('')}</ol>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">The main limitations, honestly</h3>
-        <ul class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">${[['IT work', 'Connecting GoBright and Airthings needs IT: who does it, and how long does it take?'], ['Old desks', 'Desks without motors must be replaced: €48,000'], ['Check-in', 'It only works if people really book and check in'], ['4 booths', 'May not stop all the noise in a busy open space'], ['Chair and monitor', 'No motor, only a setup tip. People still adjust them by hand'], ['Own phone and watch', 'Some people will not want to use their own devices for work']].map(([t, d]) => `<li class="rounded-3xl border-2 border-plum-800/10 p-5"><p class="font-semibold">${t}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
-      </div>
-      <div>
-        <h3 class="font-display font-semibold text-xl">What we would do differently</h3>
-        <ul class="mt-4 grid sm:grid-cols-2 gap-3">${[['Talk to real employees earlier', 'Kasia is based on the case. We would interview real people first.'], ['Measure the noise first', 'Then decide how many booths we really need.'], ['Draw the missing screens', 'The chair tip and the booth booking step. Both are now in this app.'], ['Plan the data talk from day one', 'How we tell people what is collected, so they trust it.']].map(([t, d]) => `<li class="rounded-3xl bg-white p-5"><p class="font-semibold">${t}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
-      </div>
-      <div class="rounded-[32px] bg-plum-800 text-cream-50 p-8 sm:p-12 text-center">
-        <p class="font-display font-extrabold text-4xl sm:text-5xl">Thank you!</p><p class="text-plum-200 mt-2">Questions? Try it yourself first.</p>
-        <button data-act="qr" class="mt-6 inline-flex items-center gap-2 rounded-full bg-coral-500 hover:bg-coral-600 px-6 py-3 font-semibold transition-colors"><i data-lucide="qr-code"></i>Show the QR code</button>
-        <p class="text-sm text-plum-300 mt-6">Ewelina Mruk and Hania Twardyk, group D</p>
-      </div>
-    </section>
-  </div></div>`;
-}
-
 /* =========================================================
    QR screen for the audience
    ========================================================= */
@@ -1196,6 +1061,7 @@ function openQR() {
 document.addEventListener('click', e => {
   const t = e.target.closest('button, a, [data-act], [data-backdrop]'); if (!t) return;
   if (t.matches('[data-backdrop]') && e.target === t) { closeOverlay(); return; }
+  if (t.dataset.pref) { setPref(t.dataset.pref); return; }
   if (t.dataset.desk) { selectDesk(t.dataset.desk); return; }
   if (t.dataset.room) { state.sel = { type: 'room', id: t.dataset.room }; refreshRooms(); openSheet(); return; }
   if (t.dataset.day) { state.dayIdx = +t.dataset.day; state.sel = null; render(); return; }
@@ -1218,6 +1084,7 @@ document.addEventListener('click', e => {
     case 'book-room': bookRoom(t.dataset.id, +t.dataset.min); break;
     case 'end-room': endRoom(); break;
     case 'qr': openQR(); break;
+    case 'reset': $('#reset-demo').click(); break;
     case 'copy-url': try { navigator.clipboard.writeText(qrTarget()); toast({ title: 'Link copied', icon: 'copy', tone: 'info' }); } catch (err) {} break;
     case 'edit-url': $('#url-form').classList.toggle('hidden'); $('#url-in').focus(); break;
     case 'autoplay': toggleAutoplay(); break;
@@ -1247,7 +1114,7 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'q' || e.key === 'Q') && !/input|textarea|select/i.test(document.activeElement.tagName) && !e.metaKey && !e.ctrlKey) openQR();
 });
 $('#qr-btn').onclick = openQR;
-$('#reset-demo').onclick = () => { ['bl.mine', 'bl.vent', 'bl.breaks', 'bl.room', 'bl.seenHint', 'bl.pilot'].forEach(store.del); location.hash = '#book'; location.reload(); };
+$('#reset-demo').onclick = () => { ['bl.mine', 'bl.vent', 'bl.breaks', 'bl.room', 'bl.seenHint', 'bl.pilot', 'bl.prefs'].forEach(store.del); location.hash = '#book'; location.reload(); };
 window.addEventListener('hashchange', route);
 
 /* =========================================================

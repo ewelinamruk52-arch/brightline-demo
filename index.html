@@ -135,10 +135,10 @@ tailwind.config = {
     </a>
     <nav class="hidden lg:flex items-center gap-1 ml-6" id="topnav" aria-label="Main"></nav>
     <div class="ml-auto flex items-center gap-2">
-      <span class="hidden sm:inline-flex items-center gap-2 text-xs text-plum-100 bg-plum-700/70 rounded-full px-3 py-1.5" title="Desks booked today">
+      <a href="#book" class="hidden sm:inline-flex items-center gap-2 text-xs text-plum-100 bg-plum-700/70 hover:bg-plum-700 rounded-full px-3 py-1.5" title="Desks booked today">
         <span class="relative flex w-2 h-2"><span class="absolute inset-0 rounded-full bg-teal-400 animate-ping opacity-60"></span><span class="relative w-2 h-2 rounded-full bg-teal-400"></span></span>
         <span><b id="live-count" class="text-cream-50">–</b> of 80 desks booked</span>
-      </span>
+      </a>
       <button id="qr-btn" class="whitespace-nowrap inline-flex items-center gap-2 rounded-full bg-coral-500 hover:bg-coral-600 text-white text-sm font-semibold px-3.5 py-2 transition-colors" aria-label="Show QR code for the audience">
         <i data-lucide="qr-code"></i><span class="hidden sm:inline">Scan to try</span>
       </button>
@@ -200,7 +200,10 @@ for (const z of Object.keys(ZONES)) for (let i = 1; i <= ZONES[z].n; i++) DESKS.
 const desksOf = z => DESKS.filter(d => d[0] === z);
 const TEAM = ['Tomek', 'Ola', 'Marta', 'Piotr'];
 const PROTECTED = new Set(['B12']); // keep Kasia's scenario desk free in the live simulation
-const HEIGHT = Object.assign({ sit: 72, stand: 110 }, store.get('bl.height', {}));
+// Every visit starts fresh, so each person who scans the QR code tries the whole flow themselves.
+// (Only the presenter's QR link, bl.qrurl, is kept.)
+['bl.mine', 'bl.vent', 'bl.breaks', 'bl.room', 'bl.seenHint', 'bl.pilot', 'bl.prefs', 'bl.height'].forEach(k => store.del(k));
+const HEIGHT = { sit: 72, stand: 110 };
 const HEIGHT_RANGE = { sit: [62, 85], stand: [95, 125] };
 
 function workDays(n = 5) {
@@ -363,9 +366,9 @@ function viewBook() {
       </div>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <ul class="flex flex-wrap gap-x-4 gap-y-1.5 text-sm" aria-label="Legend">
-          <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-free"></span>Free</li>
+          <li><button data-filter="free" class="flex items-center gap-1.5 hover:underline underline-offset-2"><span class="w-3.5 h-3.5 rounded bg-free"></span>Free</button></li>
           <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded desk-taken"></span>Taken</li>
-          <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-sun-400 text-[9px] font-bold grid place-items-center">T</span>Teammate</li>
+          <li><button data-filter="team" class="flex items-center gap-1.5 hover:underline underline-offset-2"><span class="w-3.5 h-3.5 rounded bg-sun-400 text-[9px] font-bold grid place-items-center">T</span>Teammate</button></li>
           <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-coral-500 ring-2 ring-teal-300"></span>Your desk</li>
           <li class="flex items-center gap-1.5"><span class="lv lv-ok"></span><span class="lv lv-warn -ml-1"></span><span class="lv lv-bad -ml-1"></span>Noise and air</li>
         </ul>
@@ -696,6 +699,15 @@ function timelineHTML() {
     <span class="min-w-0"><b class="block font-display tabular-nums">${s.t}</b><span class="hidden lg:block text-xs truncate ${i === state.step ? 'text-plum-200' : 'text-plum-500'}">${s.after}</span></span></button></li>`).join('');
 }
 after.day = () => renderStage();
+after.book = () => {
+  if (!state.pendingDesk) return;
+  const id = state.pendingDesk; state.pendingDesk = null;
+  setTimeout(() => { selectDesk(id, { scroll: true }); const el = $(`[data-desk="${id}"]`); el && el.classList.add('flash'); }, 60);
+};
+function goDesk(id) {
+  stopAutoplay(); state.dayIdx = 0; state.pendingDesk = id;
+  if (state.view === 'book') { render(); } else location.hash = '#book';
+}
 function renderStage() {
   const st = $('#stage'); if (!st) return;
   const s = STEPS[state.step];
@@ -728,9 +740,9 @@ function phone(content, time = hhmm(new Date())) {
   return `<div class="phone"><div class="flex justify-between text-[11px] font-semibold text-plum-500 -mt-1 mb-2 px-1"><span>${time}</span><span class="flex gap-1"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>${content}</div>`;
 }
 function miniMap(hl = [], key = todayKey()) {
-  const sq = id => { const st = status(id, key); const c = { free: 'bg-free', taken: 'bg-taken', team: 'bg-sun-400', mine: 'bg-coral-500 ring-2 ring-teal-300' }[st]; return `<span class="w-[9px] h-[9px] rounded-[2px] ${c} ${hl.includes(id) ? 'ring-2 ring-plum-800 ring-offset-1 animate-pulse' : ''}"></span>`; };
+  const sq = id => { const st = status(id, key); const c = { free: 'bg-free', taken: 'bg-taken', team: 'bg-sun-400', mine: 'bg-coral-500 ring-2 ring-teal-300' }[st]; return `<button type="button" data-mini="${id}" class="w-[9px] h-[9px] rounded-[2px] ${c} ${hl.includes(id) ? 'ring-2 ring-plum-800 ring-offset-1 animate-pulse' : ''} hover:scale-150 transition-transform" aria-label="Desk ${id}, ${st === 'team' ? teammateAt(id, key) : st}" title="${id}"></button>`; };
   const zone = (z, cols) => `<div class="rounded-lg ${ { Q: 'bg-plum-100', B: 'bg-teal-100' }[z] || 'bg-cream-100'} p-1.5"><div class="flex justify-between items-center text-[9px] font-semibold mb-1"><span>${ZONES[z].name}</span><span class="lv lv-${level(z)}" style="width:7px;height:7px"></span></div><div class="grid gap-[2px]" style="grid-template-columns:repeat(${cols},9px)">${desksOf(z).map(sq).join('')}</div></div>`;
-  return `<div class="grid grid-cols-2 gap-1.5">${zone('A', 8)}${zone('B', 10)}${zone('C', 8)}${zone('D', 8)}</div><div class="mt-1.5">${zone('Q', 12)}</div>`;
+  return `<div class="grid grid-cols-2 gap-1.5">${zone('A', 8)}${zone('B', 8)}${zone('C', 8)}${zone('D', 8)}</div><div class="mt-1.5">${zone('Q', 12)}</div>`;
 }
 function stageScreen(screen) {
   const k = todayKey(); const b = state.mine[k];
@@ -751,7 +763,7 @@ function stageScreen(screen) {
     case 'team': {
       const mates = DESKS.filter(d => teammateAt(d, k)).map(d => ({ n: teammateAt(d, k), id: d }));
       return phone(`<p class="font-display font-bold text-lg">Where is my team?</p><div class="mt-2">${miniMap(mates.map(m => m.id))}</div>
-      <ul class="mt-3 space-y-1.5">${mates.map(m => `<li class="flex items-center gap-2 text-sm"><span class="w-7 h-7 rounded-full bg-sun-400 grid place-items-center text-xs font-bold">${m.n[0]}</span><b>${m.n}</b><span class="text-plum-500 ml-auto">${m.id}</span></li>`).join('')}<li class="flex items-center gap-2 text-sm text-plum-400"><span class="w-7 h-7 rounded-full bg-cream-100 grid place-items-center text-xs font-bold">P</span>Piotr<span class="ml-auto">Not in today</span></li></ul>
+      <ul class="mt-3 space-y-1.5">${mates.map(m => `<li><button data-godesk="${m.id}" class="w-full flex items-center gap-2 text-sm rounded-xl p-1 -m-1 hover:bg-cream-100"><span class="w-7 h-7 rounded-full bg-sun-400 grid place-items-center text-xs font-bold">${m.n[0]}</span><b>${m.n}</b><span class="text-plum-500 ml-auto">${m.id}</span><i data-lucide="chevron-right" class="text-plum-300"></i></button></li>`).join('')}<li class="flex items-center gap-2 text-sm text-plum-400"><span class="w-7 h-7 rounded-full bg-cream-100 grid place-items-center text-xs font-bold">P</span>Piotr<span class="ml-auto">Not in today</span></li></ul>
       <a href="#book" data-act="show-team" class="mt-3 block text-center w-full rounded-full border-2 border-plum-800 py-2 text-sm font-semibold">Show on the big map</a>`, '11:00');
     }
     case 'watch': return `<div class="flex flex-col items-center gap-14 py-12"><div class="watch" id="watch">
@@ -783,14 +795,14 @@ function stageScreen(screen) {
     }
     case 'done': {
       const checks = [
-        ['G1', 'Desk set to her height', !!(b && b.checkedIn), 'Check in at 7:50'],
-        ['G2', 'Quiet place for calls', !!state.myRoom || !!(b && b.desk[0] === 'Q'), 'Book a booth or move to the quiet zone'],
-        ['G3', 'Break and water', state.breaks > 0, 'Tap Done on the watch at 13:40'],
-        ['G4', 'Fresh air in zone B', !!state.ventilatedAt, 'Mark the alert done at 14:05']
+        ['G1', 'Desk set to her height', !!(b && b.checkedIn), 'Check in at 7:50', 1],
+        ['G2', 'Quiet place for calls', !!state.myRoom || !!(b && b.desk[0] === 'Q'), 'Book a booth or move to the quiet zone', 7],
+        ['G3', 'Break and water', state.breaks > 0, 'Tap Done on the watch at 13:40', 4],
+        ['G4', 'Fresh air in zone B', !!state.ventilatedAt, 'Mark the alert done at 14:05', 6]
       ];
       const n = checks.filter(c => c[2]).length;
       return `<div class="w-full max-w-[320px] rounded-[32px] bg-plum-800 text-cream-50 p-6 shadow-lift"><p class="text-sm text-plum-200">Your demo</p><p class="font-display font-extrabold text-5xl">${n}/4</p><p class="text-sm text-plum-200">problems solved today</p>
-      <ul class="mt-4 space-y-2">${checks.map(c => `<li class="flex gap-3 items-start text-sm"><span class="w-6 h-6 rounded-full grid place-items-center shrink-0 ${c[2] ? 'bg-teal-400 text-plum-900' : 'bg-plum-700 text-plum-300'}"><i data-lucide="${c[2] ? 'check' : 'minus'}"></i></span><span><b>${c[0]}</b> ${c[1]}${c[2] ? '' : `<br><span class="text-xs text-plum-300">${c[3]}</span>`}</span></li>`).join('')}</ul></div>`;
+      <ul class="mt-4 space-y-2">${checks.map(c => `<li><button ${c[2] ? 'disabled' : `data-step="${c[4]}"`} class="w-full text-left flex gap-3 items-start text-sm rounded-xl p-1.5 -m-1.5 ${c[2] ? '' : 'hover:bg-plum-700'}"><span class="w-6 h-6 rounded-full grid place-items-center shrink-0 ${c[2] ? 'bg-teal-400 text-plum-900' : 'bg-plum-700 text-plum-300'}"><i data-lucide="${c[2] ? 'check' : 'minus'}"></i></span><span class="flex-1"><b>${c[0]}</b> ${c[1]}${c[2] ? '' : `<br><span class="text-xs text-teal-300 underline underline-offset-2">${c[3]}</span>`}</span></button></li>`).join('')}</ul></div>`;
     }
     case 'weekly': return `<div class="w-full max-w-[340px] rounded-3xl bg-white ring-1 ring-plum-800/10 p-5 shadow-lift"><p class="font-display font-semibold">This week</p><p class="text-xs text-plum-500">Anonymous, team level, groups of 5+</p>${weekBars('B', true)}</div>`;
   }
@@ -832,7 +844,7 @@ function sparkline(z) {
     <circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1]}" r="4" fill="#3B82F6" stroke="#17202B" stroke-width="2"/></svg>`;
 }
 function viewManager() {
-  const tile = z => { const lv = level(z); return `<div class="rounded-2xl bg-white p-4 border-2 ${{ ok: 'border-free/50', warn: 'border-sun-400', bad: 'border-taken' }[lv]}" data-tile="${z}">
+  const tile = z => { const lv = level(z); return `<div role="button" tabindex="0" data-mgrzone="${z}" aria-pressed="${state.mgrZone === z}" class="cursor-pointer rounded-2xl bg-white p-4 border-2 hover:-translate-y-0.5 transition-transform ${state.mgrZone === z ? 'ring-4 ring-coral-500/30' : ''} ${{ ok: 'border-free/50', warn: 'border-sun-400', bad: 'border-taken' }[lv]}" data-tile="${z}">
     <div class="flex items-center justify-between"><b class="font-display">${ZONES[z].name}</b><span class="lv lv-${lv}" data-lv="${z}"></span></div>
     <dl class="mt-2 grid grid-cols-2 gap-1 text-sm"><div><dt class="text-xs text-plum-500">CO₂</dt><dd class="font-bold tabular-nums"><span data-sensor="${z}-co2">${Math.round(SENS[z].co2)}</span> <span class="text-xs font-normal">ppm</span></dd></div><div><dt class="text-xs text-plum-500">Noise</dt><dd class="font-bold tabular-nums"><span data-sensor="${z}-noise">${Math.round(SENS[z].noise)}</span> <span class="text-xs font-normal">dB</span></dd></div></dl>
     <p class="text-xs text-plum-500 mt-1" data-lvtext="${z}">${levelText[lv]}, ${SENS[z].temp.toFixed(1)} °C</p></div>`; };
@@ -846,7 +858,7 @@ function viewManager() {
       <div class="space-y-4">
         <div id="mgr-alert">${alertCard()}</div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${['A', 'B', 'C', 'D', 'Q'].map(tile).join('')}
-          <div class="rounded-2xl bg-white p-4 border-2 border-plum-200"><div class="flex items-center justify-between"><b class="font-display">Booths</b><i data-lucide="phone" class="text-plum-400"></i></div><p class="mt-2 font-bold text-2xl tabular-nums" id="booth-use">${inUse}/4</p><p class="text-xs text-plum-500">in use now, max 30 min each</p></div>
+          <a href="#book" data-act="to-booths" class="block rounded-2xl bg-white p-4 border-2 border-plum-200 hover:-translate-y-0.5 transition-transform"><div class="flex items-center justify-between"><b class="font-display">Booths</b><i data-lucide="phone" class="text-plum-400"></i></div><p class="mt-2 font-bold text-2xl tabular-nums" id="booth-use">${inUse}/4</p><p class="text-xs text-plum-500">in use now, max 30 min each</p></a>
         </div>
         <div class="rounded-3xl bg-white p-5">
           <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-display font-semibold">CO₂ today</h2>
@@ -905,7 +917,7 @@ function viewProfile() {
       </div>
       <div class="rounded-3xl bg-white p-5">
         <h2 class="font-display font-bold text-lg">My desk settings</h2>
-        <p class="text-sm text-plum-500">Saved to your account. Any smart desk loads them when you check in. <span id="h-saved" class="text-free font-semibold opacity-0 transition-opacity">Saved</span></p>
+        <p class="text-sm text-plum-500">Any smart desk loads them when you check in. <span id="h-saved" class="text-free font-semibold opacity-0 transition-opacity">Saved</span></p>
         <dl class="mt-3 grid grid-cols-2 gap-2">
           ${[['sit', 'Sitting', 'armchair'], ['stand', 'Standing', 'arrow-up']].map(([k, l, ic]) => `<div class="rounded-2xl bg-cream-100 p-3"><dt class="text-xs text-plum-500 flex items-center gap-1"><i data-lucide="${ic}"></i>${l}</dt>
             <dd class="mt-1 flex items-center justify-between gap-1"><button data-act="h" data-k="${k}" data-d="-1" class="w-9 h-9 rounded-full bg-white hover:bg-plum-100 grid place-items-center text-lg disabled:opacity-30" aria-label="${l} height down" ${HEIGHT[k] <= HEIGHT_RANGE[k][0] ? 'disabled' : ''}><i data-lucide="minus"></i></button><span class="font-display font-extrabold text-2xl tabular-nums" aria-live="polite"><span data-h="${k}">${HEIGHT[k]}</span><span class="text-sm"> cm</span></span><button data-act="h" data-k="${k}" data-d="1" class="w-9 h-9 rounded-full bg-white hover:bg-plum-100 grid place-items-center text-lg disabled:opacity-30" aria-label="${l} height up" ${HEIGHT[k] >= HEIGHT_RANGE[k][1] ? 'disabled' : ''}><i data-lucide="plus"></i></button></dd></div>`).join('')}
@@ -914,7 +926,7 @@ function viewProfile() {
       </div>
       <div class="rounded-3xl bg-white p-5">
         <div class="flex items-center justify-between"><h2 class="font-display font-bold text-lg">My team today</h2><a href="#book" data-act="show-team" class="text-sm font-semibold text-coral-500">Show on map</a></div>
-        <ul class="mt-3 space-y-2">${mates.map(m => `<li class="flex items-center gap-3 text-sm"><span class="w-8 h-8 rounded-full ${m.id ? 'bg-sun-400' : 'bg-cream-100 text-plum-400'} grid place-items-center font-bold">${m.n[0]}</span><b class="${m.id ? '' : 'text-plum-400'}">${m.n}</b><span class="ml-auto ${m.id ? '' : 'text-plum-400'}">${m.id ? `Desk ${m.id}` : 'Not in today'}</span></li>`).join('')}</ul>
+        <ul class="mt-3 space-y-2">${mates.map(m => `<li><button ${m.id ? `data-godesk="${m.id}"` : 'disabled'} class="w-full flex items-center gap-3 text-sm rounded-xl p-1.5 -m-1.5 text-left ${m.id ? 'hover:bg-cream-100' : ''}"><span class="w-8 h-8 rounded-full ${m.id ? 'bg-sun-400' : 'bg-cream-100 text-plum-400'} grid place-items-center font-bold">${m.n[0]}</span><b class="${m.id ? '' : 'text-plum-400'}">${m.n}</b><span class="ml-auto ${m.id ? '' : 'text-plum-400'}">${m.id ? `Desk ${m.id}` : 'Not in today'}</span>${m.id ? '<i data-lucide="chevron-right" class="text-plum-300"></i>' : ''}</button></li>`).join('')}</ul>
       </div>
     </div>
 
@@ -1063,10 +1075,18 @@ function openQR() {
    Events
    ========================================================= */
 document.addEventListener('click', e => {
-  const t = e.target.closest('button, a, [data-act], [data-backdrop]'); if (!t) return;
+  const t = e.target.closest('button, a, [data-act], [data-backdrop], [data-mgrzone]'); if (!t || t.disabled) return;
   if (t.matches('[data-backdrop]') && e.target === t) { closeOverlay(); return; }
   if (t.dataset.pref) { setPref(t.dataset.pref); return; }
   if (t.dataset.desk) { selectDesk(t.dataset.desk); return; }
+  if (t.dataset.godesk) { e.preventDefault(); goDesk(t.dataset.godesk); return; }
+  if (t.dataset.mgrzone) { setMgrZone(t.dataset.mgrzone); return; }
+  if (t.dataset.mini) {
+    const id = t.dataset.mini, k0 = todayKey();
+    if (STEPS[state.step].screen === 'book' && state.view === 'day' && status(id, k0) === 'free') { bookDesk(id, k0); renderStage(); }
+    else goDesk(id);
+    return;
+  }
   if (t.dataset.room) { state.sel = { type: 'room', id: t.dataset.room }; refreshRooms(); openSheet(); return; }
   if (t.dataset.day) { state.dayIdx = +t.dataset.day; state.sel = null; render(); return; }
   if (t.dataset.filter) { state.filter = t.dataset.filter; render(); return; }
@@ -1089,6 +1109,7 @@ document.addEventListener('click', e => {
     case 'end-room': endRoom(); break;
     case 'qr': openQR(); break;
     case 'reset': resetDemo(); break;
+    case 'to-booths': e.preventDefault(); state.dayIdx = 0; state.sel = null; if (state.view === 'book') render(); else location.hash = '#book'; setTimeout(() => { const cz = $('#callzone'); cz && cz.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'center' }); }, 120); break;
     case 'copy-url': try { navigator.clipboard.writeText(qrTarget()); toast({ title: 'Link copied', icon: 'copy', tone: 'info' }); } catch (err) {} break;
     case 'edit-url': $('#url-form').classList.toggle('hidden'); $('#url-in').focus(); break;
     case 'autoplay': toggleAutoplay(); break;
@@ -1111,15 +1132,22 @@ document.addEventListener('click', e => {
     case 'export': exportReport(); break;
   }
 });
+function setMgrZone(z) {
+  state.mgrZone = z;
+  $('#spark').innerHTML = sparkline(z); $('#week').innerHTML = weekBars(z); growBars();
+  const sel = $('#mgr-zone'); if (sel) sel.value = z;
+  $$('[data-mgrzone]').forEach(el => { const on = el.dataset.mgrzone === z; el.setAttribute('aria-pressed', on); el.classList.toggle('ring-4', on); el.classList.toggle('ring-coral-500/30', on); });
+}
 document.addEventListener('change', e => {
-  if (e.target.id === 'mgr-zone') { state.mgrZone = e.target.value; $('#spark').innerHTML = sparkline(state.mgrZone); $('#week').innerHTML = weekBars(state.mgrZone); $$('#week [data-w]').forEach(x => x.style.width = x.dataset.w + '%'); }
+  if (e.target.id === 'mgr-zone') setMgrZone(e.target.value);
 });
 document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement.dataset && document.activeElement.dataset.mgrzone) { e.preventDefault(); setMgrZone(document.activeElement.dataset.mgrzone); return; }
   if (e.key === 'Escape') { if ($('#overlay').innerHTML) closeOverlay(); else closeSheet(); }
   if ((e.key === 'q' || e.key === 'Q') && !/input|textarea|select/i.test(document.activeElement.tagName) && !e.metaKey && !e.ctrlKey) openQR();
 });
 $('#qr-btn').onclick = openQR;
-function resetDemo() { ['bl.mine', 'bl.vent', 'bl.breaks', 'bl.room', 'bl.seenHint', 'bl.pilot', 'bl.prefs', 'bl.height'].forEach(store.del); location.hash = '#book'; location.reload(); }
+function resetDemo() { location.hash = '#book'; location.reload(); }
 window.addEventListener('hashchange', route);
 
 /* =========================================================

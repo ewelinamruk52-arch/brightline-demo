@@ -1,0 +1,1219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brightline – Smart Hot Desking</title>
+<meta name="description" content="Brightline: a smarter way to share desks. Book a desk on the live office map, check in with one tap, and see how smart desks, room sensors and phone booths fix hot desking. HCI project, Group D.">
+<meta name="theme-color" content="#2B2440">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232B2440'/%3E%3Crect x='12' y='30' width='40' height='5' rx='2.5' fill='%23F7F0E6'/%3E%3Crect x='17' y='35' width='4' height='14' fill='%23CFC6EC'/%3E%3Crect x='43' y='35' width='4' height='14' fill='%23CFC6EC'/%3E%3Crect x='23' y='14' width='18' height='12' rx='2' fill='%236CC3B5'/%3E%3Ccircle cx='50' cy='14' r='6' fill='%23EF7B5C'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        plum: { 50:'#F4F1FA',100:'#E6E0F5',200:'#CFC6EC',300:'#A99CCB',400:'#7E7099',500:'#5E5277',600:'#4A4068',700:'#3A3156',800:'#2B2440',900:'#1F1930' },
+        cream: { 50:'#FFFCF7',100:'#F7F0E6',200:'#EFE4D3',300:'#E4D5BE' },
+        coral: { 100:'#FBE1D8',300:'#F6A48D',500:'#EF7B5C',600:'#D9603F' },
+        teal: { 100:'#D9F0EA',300:'#9ED8CE',400:'#6CC3B5',600:'#3B8F82' },
+        sun: { 100:'#FCF1CF',400:'#F2C94C' },
+        free: '#1A7F5A', taken: '#E1534B'
+      },
+      fontFamily: {
+        display: ['Poppins','system-ui','sans-serif'],
+        body: ['"DM Sans"','system-ui','sans-serif']
+      },
+      boxShadow: {
+        soft: '0 1px 0 rgba(43,36,64,.04), 0 12px 32px -18px rgba(43,36,64,.35)',
+        lift: '0 30px 60px -30px rgba(31,25,48,.6)'
+      }
+    }
+  }
+}
+</script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root { --d: 34px; }
+  @media (min-width: 640px) { :root { --d: 36px; } }
+  button, a { touch-action: manipulation; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; background: #F7F0E6; color: #2B2440; }
+  .font-display { letter-spacing: -0.02em; }
+  [data-lucide] { width: 1em; height: 1em; stroke-width: 2; flex: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
+  :focus-visible { outline: 3px solid #6CC3B5; outline-offset: 2px; border-radius: 8px; }
+
+  /* ---------- floor plan: the one bold element ---------- */
+  .floor {
+    background:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 22px 22px,
+      #2B2440;
+  }
+  .windows { background: repeating-linear-gradient(90deg, #9ED8CE 0 46px, transparent 46px 52px); height: 5px; border-radius: 3px; opacity: .9; }
+  .zone { border-radius: 18px; padding: 12px; position: relative; }
+  .tone-sand { background: #F3EADC; } .tone-mint { background: #D9F0EA; } .tone-lav { background: #E6E0F5; } .tone-blush { background: #FBE1D8; }
+  .island { display: grid; grid-template-columns: repeat(2, var(--d)); gap: 4px; padding: 5px; border-radius: 12px; background: rgba(255,255,255,.6); }
+  .desk {
+    width: var(--d); height: var(--d); border-radius: 8px; position: relative;
+    display: grid; place-items: center; font: 700 10px/1 'DM Sans', sans-serif; color: #fff;
+    transition: transform .15s ease, box-shadow .2s ease, background-color .3s ease, opacity .25s;
+  }
+  .desk-free { background: #1A7F5A; }
+  .desk-free:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 8px 16px -6px rgba(26,127,90,.8); }
+  .desk-taken { background-color: #E1534B; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.2) 0 3px, transparent 3px 7px); color: rgba(255,255,255,.7); }
+  .desk-team { background: #E1534B; color: #2B2440; }
+  .desk-team::after { content: 'T'; position: absolute; inset: 4px; border-radius: 6px; background: #F2C94C; display: grid; place-items: center; font: 800 11px/1 'Poppins', sans-serif; }
+  .desk-mine { background: #2B2440; box-shadow: 0 0 0 3px #6CC3B5, 0 0 16px 3px rgba(108,195,181,.75); animation: ring 2.6s ease-in-out infinite; }
+  .desk.is-selected { outline: 3px solid #2B2440; outline-offset: 2px; transform: scale(1.12); z-index: 2; }
+  .desk.is-selected.desk-mine { outline-color: #6CC3B5; }
+  .desk.flash { animation: flash 1.1s ease-out; }
+  .desk.pop { animation: pop .55s cubic-bezier(.3,1.6,.5,1); }
+  .floor.f-free .desk-taken, .floor.f-free .desk-team { opacity: .18; }
+  .floor.f-team .desk-free, .floor.f-team .desk-taken { opacity: .18; }
+  .lv { width: 10px; height: 10px; border-radius: 99px; display: inline-block; flex: none; }
+  .lv-ok { background: #1A7F5A; } .lv-warn { background: #F2C94C; } .lv-bad { background: #E1534B; animation: beacon 1.6s infinite; }
+  .booth { transition: transform .15s, background-color .2s; }
+  .booth:hover { transform: translateY(-1px); }
+
+  /* ---------- devices (from the sketches) ---------- */
+  .phone { width: 280px; max-width: 100%; border: 10px solid #1F1930; border-radius: 42px; background: #fff; padding: 14px 14px 18px; position: relative; box-shadow: 0 30px 60px -30px rgba(31,25,48,.6); }
+  .phone::before { content: ''; display: block; width: 84px; height: 20px; border-radius: 99px; background: #1F1930; margin: -6px auto 10px; }
+  .watch { width: 210px; height: 236px; border-radius: 52px; background: #0E0B16; border: 7px solid #3A3156; position: relative; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 18px; box-shadow: 0 30px 60px -30px rgba(31,25,48,.6); }
+  .watch::before, .watch::after { content: ''; position: absolute; left: 50%; width: 120px; height: 46px; transform: translateX(-50%); background: #CFC6EC; border-radius: 14px; z-index: -1; }
+  .watch::before { top: -44px; } .watch::after { bottom: -44px; }
+  .watch.buzz { animation: buzz .14s linear 0s 4; }
+
+  /* ---------- feedback ---------- */
+  #toasts { position: fixed; z-index: 90; top: 76px; right: 16px; left: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+  @media (max-width: 639px) { #toasts { align-items: stretch; top: 68px; } }
+  .toast { pointer-events: auto; animation: toastIn .4s cubic-bezier(.2,.9,.3,1.2); }
+  .toast.out { animation: toastOut .3s ease-in forwards; }
+  .sheet-backdrop { display: none; }
+  @media (max-width: 1279px) {
+    #desk-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; transform: translateY(110%); transition: transform .35s cubic-bezier(.2,.8,.2,1); max-height: 82vh; overflow: auto; border-radius: 26px 26px 0 0; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+    #desk-panel.open { transform: none; }
+    .sheet-backdrop.open { display: block; position: fixed; inset: 0; background: rgba(31,25,48,.45); z-index: 65; }
+  }
+  .nfc-ring { position: absolute; inset: 0; border-radius: 999px; border: 2px solid #6CC3B5; animation: nfc 1.8s ease-out infinite; }
+  .nfc-ring:nth-child(2) { animation-delay: .6s; } .nfc-ring:nth-child(3) { animation-delay: 1.2s; }
+  .desktop-top { transition: transform 1.8s cubic-bezier(.4,0,.2,1); }
+  .qr-frame { background: conic-gradient(from var(--a, 0deg), #EF7B5C, #F2C94C, #6CC3B5, #CFC6EC, #EF7B5C); animation: spin 6s linear infinite; }
+  @property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  .bar-fill { transition: width 1s cubic-bezier(.2,.8,.2,1); }
+  .tick { transition: color .3s; }
+
+  @keyframes ring { 0%,100% { box-shadow: 0 0 0 3px #6CC3B5, 0 0 10px 1px rgba(108,195,181,.5); } 50% { box-shadow: 0 0 0 3px #6CC3B5, 0 0 20px 5px rgba(108,195,181,.85); } }
+  @keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(242,201,76,1); transform: scale(1.25); } 100% { box-shadow: 0 0 0 14px rgba(242,201,76,0); transform: scale(1); } }
+  @keyframes pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
+  @keyframes beacon { 0% { box-shadow: 0 0 0 0 rgba(225,83,75,.7); } 100% { box-shadow: 0 0 0 9px rgba(225,83,75,0); } }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-14px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes toastOut { to { opacity: 0; transform: translateX(30px); } }
+  @keyframes nfc { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+  @keyframes buzz { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-3px) rotate(-1deg); } 75% { transform: translateX(3px) rotate(1deg); } }
+  @keyframes spin { to { --a: 360deg; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .rise { animation: rise .45s cubic-bezier(.2,.8,.2,1) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body class="antialiased min-h-screen">
+
+<header class="sticky top-0 z-50 bg-plum-800 text-cream-50">
+  <div class="max-w-7xl mx-auto px-4 h-16 flex items-center gap-3">
+    <a href="#book" class="flex items-center gap-2.5 shrink-0" aria-label="Brightline home">
+      <svg viewBox="0 0 64 64" class="w-9 h-9" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#3A3156"/><rect x="12" y="30" width="40" height="5" rx="2.5" fill="#F7F0E6"/><rect x="17" y="35" width="4" height="14" fill="#CFC6EC"/><rect x="43" y="35" width="4" height="14" fill="#CFC6EC"/><rect x="23" y="14" width="18" height="12" rx="2" fill="#6CC3B5"/><circle cx="50" cy="14" r="6" fill="#EF7B5C"/></svg>
+      <span class="leading-tight"><span class="block font-display font-bold text-lg">Brightline</span><span class="hidden sm:block text-[11px] text-plum-200">a smarter way to share desks</span></span>
+    </a>
+    <nav class="hidden lg:flex items-center gap-1 ml-6" id="topnav" aria-label="Main"></nav>
+    <div class="ml-auto flex items-center gap-2">
+      <span class="hidden sm:inline-flex items-center gap-2 text-xs text-plum-100 bg-plum-700/70 rounded-full px-3 py-1.5" title="Desks booked today">
+        <span class="relative flex w-2 h-2"><span class="absolute inset-0 rounded-full bg-teal-400 animate-ping opacity-60"></span><span class="relative w-2 h-2 rounded-full bg-teal-400"></span></span>
+        <span><b id="live-count" class="text-cream-50">–</b> of 80 desks booked</span>
+      </span>
+      <button id="qr-btn" class="whitespace-nowrap inline-flex items-center gap-2 rounded-full bg-coral-500 hover:bg-coral-600 text-white text-sm font-semibold px-3.5 py-2 transition-colors" aria-label="Show QR code for the audience">
+        <i data-lucide="qr-code"></i><span class="hidden sm:inline">Scan to try</span>
+      </button>
+      <div class="hidden xl:flex items-center gap-2 pl-2">
+        <span class="w-9 h-9 rounded-full bg-teal-400 text-plum-900 font-display font-bold grid place-items-center text-sm" aria-hidden="true">K</span>
+        <span class="text-xs leading-tight"><b class="block">Kasia</b><span class="text-plum-200">Zone B team</span></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="view" class="max-w-7xl mx-auto px-4 pt-6 pb-10"></main>
+
+<footer class="max-w-7xl mx-auto px-4 pb-28 lg:pb-10 text-xs text-plum-500 flex flex-wrap gap-x-5 gap-y-2 items-center">
+  <span>Brightline, Group D: Ewelina, Hania, Zuzia Gutkowska, Zuzia Nowak</span>
+  <span>Fundamentals of HCI, wearables project 2026/2027</span>
+  <button id="reset-demo" class="underline underline-offset-2 hover:text-plum-800">Reset demo</button>
+</footer>
+
+<nav id="bottomnav" class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-cream-50/95 backdrop-blur border-t border-plum-800/10 grid grid-cols-4" style="padding-bottom: env(safe-area-inset-bottom)" aria-label="Main"></nav>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="overlay"></div>
+
+<script>
+/* =========================================================
+   Brightline – smart hot desking demo (single file)
+   Optional: after deploying, put your public link here so the
+   QR code always points to it (otherwise the current URL is used).
+   ========================================================= */
+const PUBLIC_URL = '';
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const pad = n => String(n).padStart(2, '0');
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const addMin = (d, m) => new Date(d.getTime() + m * 60000);
+const icons = () => { try { window.lucide && lucide.createIcons(); } catch (e) {} };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const rnd = (a, b) => a + Math.random() * (b - a);
+const store = {
+  get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch (e) { return f; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const vibrate = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- office model (slide 7 + updated map, slide 16) ---------- */
+const ZONES = {
+  Q: { name: 'Quiet zone', sub: 'By the windows, no calls', n: 12, tone: 'lav' },
+  A: { name: 'Zone A', sub: 'Team desks', n: 16, tone: 'sand' },
+  B: { name: 'Zone B', sub: 'Kasia’s team, customer service', n: 20, tone: 'mint' },
+  C: { name: 'Zone C', sub: 'Team desks', n: 16, tone: 'sand' },
+  D: { name: 'Zone D', sub: 'Team desks', n: 16, tone: 'sand' }
+};
+const DESKS = [];
+for (const z of Object.keys(ZONES)) for (let i = 1; i <= ZONES[z].n; i++) DESKS.push(z + pad(i));
+const desksOf = z => DESKS.filter(d => d[0] === z);
+const TEAM = ['Tomek', 'Ola', 'Marta', 'Piotr'];
+const PROTECTED = new Set(['B12']); // keep Kasia's scenario desk free in the live simulation
+const HEIGHT = { sit: 72, stand: 110 };
+
+function workDays(n = 5) {
+  const out = []; const d = new Date(); d.setHours(0, 0, 0, 0);
+  while (out.length < n) { const w = d.getDay(); if (w !== 0 && w !== 6) out.push(new Date(d)); d.setDate(d.getDate() + 1); }
+  return out;
+}
+const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dayLabel = d => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const isToday = d => dayKey(d) === dayKey(new Date());
+
+function genDay(key, first) {
+  const r = mulberry32(hash(key));
+  const rate = { Q: .5, A: .72, B: .6, C: .66, D: .62 };
+  const occ = {};
+  for (const id of DESKS) if (r() < rate[id[0]]) occ[id] = 'taken';
+  if (first) {
+    // The scenario day: B12 free next to Tomek and Ola, 6 free desks in the quiet zone (screen 3)
+    delete occ.B12; occ.B11 = 'team:Tomek'; occ.B10 = 'team:Ola'; occ.B14 = 'team:Marta';
+    desksOf('Q').forEach((d, i) => { if ([1, 2, 5, 7, 9, 10].includes(i)) delete occ[d]; else occ[d] = 'taken'; });
+  } else {
+    const b = desksOf('B'); const names = TEAM.slice(0, 2 + Math.floor(r() * 3));
+    names.forEach(n => { const id = b[Math.floor(r() * b.length)]; occ[id] = 'team:' + n; });
+  }
+  return occ;
+}
+
+/* ---------- state ---------- */
+const now0 = new Date();
+const state = {
+  view: 'book',
+  days: workDays(5),
+  dayIdx: 0,
+  occ: {},
+  mine: store.get('bl.mine', {}),          // { dayKey: { desk, checkedIn } }
+  filter: 'all',
+  sel: null,                                 // { type:'desk'|'room', id }
+  feed: [],
+  ventilatedAt: store.get('bl.vent', null),
+  breaks: store.get('bl.breaks', 0),
+  rooms: [
+    { id: 'b1', name: 'Booth 1', kind: 'booth', until: addMin(now0, 18) },
+    { id: 'b2', name: 'Booth 2', kind: 'booth', until: null },
+    { id: 'b3', name: 'Booth 3', kind: 'booth', until: addMin(now0, 7) },
+    { id: 'b4', name: 'Booth 4', kind: 'booth', until: null },
+    { id: 'r1', name: 'Meeting room 1', kind: 'room', cap: 6, until: addMin(now0, 52) },
+    { id: 'r2', name: 'Meeting room 2', kind: 'room', cap: 8, until: null }
+  ],
+  myRoom: null,                              // { id, until }
+  step: 0, mode: 'after', autoplay: null,
+  mgrZone: 'B',
+  alertSince: addMin(now0, -17)
+};
+state.days.forEach((d, i) => state.occ[dayKey(d)] = genDay(dayKey(d), i === 0));
+const savedRoom = store.get('bl.room', null);
+if (savedRoom && new Date(savedRoom.until) > new Date()) {
+  state.myRoom = { id: savedRoom.id, until: new Date(savedRoom.until) };
+  const r = state.rooms.find(x => x.id === savedRoom.id); if (r) r.until = state.myRoom.until;
+}
+// drop bookings on days no longer shown; free those desks in the generated occupancy
+for (const k of Object.keys(state.mine)) {
+  if (!state.occ[k]) delete state.mine[k]; else delete state.occ[k][state.mine[k].desk];
+}
+const save = () => { store.set('bl.mine', state.mine); store.set('bl.vent', state.ventilatedAt); store.set('bl.breaks', state.breaks); store.set('bl.room', state.myRoom); };
+
+const curDay = () => state.days[state.dayIdx];
+const curKey = () => dayKey(curDay());
+const todayKey = () => dayKey(state.days[0]);
+function status(id, key = curKey()) {
+  const m = state.mine[key]; if (m && m.desk === id) return 'mine';
+  const o = state.occ[key][id]; if (!o) return 'free';
+  return o.startsWith('team:') ? 'team' : 'taken';
+}
+const teammateAt = (id, key = curKey()) => { const o = state.occ[key][id]; return o && o.startsWith('team:') ? o.slice(5) : null; };
+const islandOf = id => { const z = id[0], n = +id.slice(1); if (z === 'Q') return desksOf('Q').filter(d => Math.abs(+d.slice(1) - n) <= 1 && d !== id); const s = Math.floor((n - 1) / 4) * 4; return [1, 2, 3, 4].map(i => z + pad(s + i)).filter(d => d !== id); };
+const bookedCount = (key = todayKey()) => DESKS.filter(d => status(d, key) !== 'free').length;
+const freeIn = (z, key = curKey()) => desksOf(z).filter(d => status(d, key) === 'free').length;
+
+/* ---------- sensors (Airthings, one per zone) ---------- */
+const SENS = {
+  A: { co2: 640, noise: 48, temp: 22.1, t: { co2: 650, noise: 48 } },
+  B: { co2: 1400, noise: 68, temp: 23.6, t: { co2: 1410, noise: 67 } },
+  C: { co2: 720, noise: 52, temp: 22.4, t: { co2: 730, noise: 52 } },
+  D: { co2: 930, noise: 58, temp: 22.9, t: { co2: 940, noise: 58 } },
+  Q: { co2: 600, noise: 38, temp: 21.8, t: { co2: 610, noise: 38 } }
+};
+const HIST = {}; Object.keys(SENS).forEach(z => { HIST[z] = []; let c = SENS[z].co2 * .62; for (let i = 0; i < 36; i++) { c += (SENS[z].co2 - c) * .09 + rnd(-18, 18); HIST[z].push(Math.round(c)); } });
+if (state.ventilatedAt) { SENS.B.co2 = 760; SENS.B.noise = 56; SENS.B.t = { co2: 720, noise: 56 }; }
+function level(z) { const s = SENS[z]; if (s.co2 >= 1200 || s.noise >= 63) return 'bad'; if (s.co2 >= 900 || s.noise >= 56) return 'warn'; return 'ok'; }
+const levelText = { ok: 'Fresh and calm', warn: 'Getting busy', bad: 'Loud and stuffy' };
+const alertActive = () => !state.ventilatedAt;
+
+/* ---------- toasts & feed ---------- */
+function toast({ title, body = '', icon = 'circle-check', tone = 'ok', action = null }) {
+  const tones = { ok: 'bg-plum-800 text-cream-50', warn: 'bg-sun-400 text-plum-900', bad: 'bg-taken text-white', info: 'bg-white text-plum-800 ring-1 ring-plum-800/10' };
+  const el = document.createElement('div');
+  el.className = `toast w-full sm:w-[360px] rounded-2xl px-4 py-3 shadow-lift flex gap-3 items-start ${tones[tone]}`;
+  el.innerHTML = `<i data-lucide="${icon}" class="mt-0.5 text-lg"></i><div class="flex-1 min-w-0"><p class="font-semibold leading-snug">${title}</p>${body ? `<p class="text-sm opacity-80 leading-snug mt-0.5">${body}</p>` : ''}${action ? `<button class="mt-2 text-sm font-semibold underline underline-offset-2">${action.label}</button>` : ''}</div><button class="opacity-60 hover:opacity-100" aria-label="Dismiss"><i data-lucide="x"></i></button>`;
+  $('#toasts').prepend(el); icons();
+  const kill = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
+  el.querySelectorAll('button')[action ? 1 : 0].onclick = kill;
+  if (action) el.querySelector('button').onclick = () => { action.fn(); kill(); };
+  setTimeout(kill, 5200);
+  while ($('#toasts').children.length > 3) $('#toasts').lastChild.remove();
+}
+function feed(text, icon = 'radio') {
+  state.feed.unshift({ t: hhmm(new Date()), text, icon });
+  state.feed = state.feed.slice(0, 7);
+  const f = $('#feed-list'); if (f) { f.innerHTML = feedItems(); icons(); }
+}
+const feedItems = () => state.feed.length ? state.feed.map((e, i) => `<li class="flex gap-3 items-start py-2 ${i === 0 ? 'rise' : ''}"><span class="mt-0.5 text-plum-400"><i data-lucide="${e.icon}"></i></span><span class="flex-1 text-sm">${e.text}</span><span class="text-xs text-plum-400 tabular-nums">${e.t}</span></li>`).join('') : `<li class="py-2 text-sm text-plum-400">Waiting for the first update from the office…</li>`;
+
+/* ---------- navigation ---------- */
+const TABS = [
+  { id: 'book', label: 'Book a desk', short: 'Book', icon: 'map' },
+  { id: 'day', label: 'Kasia’s day', short: 'Her day', icon: 'clock' },
+  { id: 'manager', label: 'Manager', short: 'Manager', icon: 'layout-dashboard' },
+  { id: 'project', label: 'Our project', short: 'Project', icon: 'presentation' }
+];
+function renderNav() {
+  $('#topnav').innerHTML = TABS.map(t => `<a href="#${t.id}" class="whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-medium transition-colors ${state.view === t.id ? 'bg-cream-50 text-plum-800' : 'text-plum-100 hover:bg-plum-700'}" ${state.view === t.id ? 'aria-current="page"' : ''}>${t.label}</a>`).join('');
+  $('#bottomnav').innerHTML = TABS.map(t => `<a href="#${t.id}" class="flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${state.view === t.id ? 'text-plum-800' : 'text-plum-400'}" ${state.view === t.id ? 'aria-current="page"' : ''}><span class="text-xl ${state.view === t.id ? 'bg-teal-100 rounded-full px-4 py-0.5' : 'px-4 py-0.5'}"><i data-lucide="${t.icon}"></i></span>${t.short}</a>`).join('');
+}
+function route() {
+  const h = (location.hash || '#book').slice(1);
+  state.view = TABS.some(t => t.id === h) ? h : 'book';
+  if (state.view !== 'day') stopAutoplay();
+  render(); window.scrollTo({ top: 0 });
+}
+function render() {
+  renderNav();
+  const v = { book: viewBook, day: viewDay, manager: viewManager, project: viewProject }[state.view];
+  $('#view').innerHTML = v();
+  icons(); after[state.view] && after[state.view]();
+  $('#live-count').textContent = bookedCount();
+}
+const after = {};
+
+/* =========================================================
+   VIEW 1 · Book a desk (screen 1)
+   ========================================================= */
+function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+function viewBook() {
+  const firstVisit = !store.get('bl.seenHint', false);
+  return `
+  ${firstVisit ? `<div id="hint" class="mb-4 sm:mb-5 rounded-2xl bg-plum-800 text-cream-50 px-4 py-3 flex items-center gap-3 rise"><i data-lucide="user" class="text-teal-300 text-xl"></i><p class="text-sm flex-1">You are Kasia today. Book a green desk, then tap in.<span class="hidden sm:inline"> Then try her whole day in <a href="#day" class="underline underline-offset-2 font-semibold">Kasia’s day</a>.</span></p><button data-act="hide-hint" class="text-plum-200 hover:text-white" aria-label="Hide tip"><i data-lucide="x"></i></button></div>` : ''}
+  <section class="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+    <div class="min-w-0 space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="font-display font-bold text-2xl sm:text-4xl leading-tight">${greeting()}, Kasia</h1>
+          <p class="hidden sm:block text-plum-600 mt-1">Pick a free desk. It remembers your height, so it is ready when you tap in.</p>
+        </div>
+        <button data-act="near-team" class="inline-flex items-center gap-2 rounded-full border-2 border-plum-800 px-4 py-2 font-semibold text-sm hover:bg-plum-800 hover:text-cream-50 transition-colors"><i data-lucide="users"></i>Sit near my team</button>
+      </div>
+      <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1" role="tablist" aria-label="Day">
+        ${state.days.map((d, i) => { const k = dayKey(d); const m = state.mine[k]; const f = DESKS.length - bookedCount(k); return `<button role="tab" aria-selected="${i === state.dayIdx}" data-day="${i}" class="shrink-0 rounded-2xl px-4 py-2.5 text-left transition-colors ${i === state.dayIdx ? 'bg-plum-800 text-cream-50' : 'bg-white hover:bg-cream-200'}"><span class="block text-sm font-semibold">${isToday(d) ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'long' })}</span><span class="block text-xs ${i === state.dayIdx ? 'text-plum-200' : 'text-plum-500'}">${dayLabel(d)} · ${m ? `<b class="${i === state.dayIdx ? 'text-teal-300' : 'text-teal-600'}">${m.desk}</b>` : `${f} free`}</span></button>`; }).join('')}
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <ul class="flex flex-wrap gap-x-4 gap-y-1.5 text-sm" aria-label="Legend">
+          <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-free"></span>Free</li>
+          <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded desk-taken"></span>Taken</li>
+          <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-sun-400 text-[9px] font-bold grid place-items-center">T</span>Teammate</li>
+          <li class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-plum-800 ring-2 ring-teal-400"></span>Your desk</li>
+          <li class="flex items-center gap-1.5"><span class="lv lv-ok"></span><span class="lv lv-warn -ml-1"></span><span class="lv lv-bad -ml-1"></span>Noise and air</li>
+        </ul>
+        <div class="inline-flex rounded-full bg-white p-1 text-sm" role="group" aria-label="Show">
+          ${[['all', 'All'], ['free', 'Free only'], ['team', 'My team']].map(([v, l]) => `<button data-filter="${v}" aria-pressed="${state.filter === v}" class="px-3 py-1.5 rounded-full font-medium ${state.filter === v ? 'bg-plum-800 text-cream-50' : 'text-plum-600 hover:text-plum-800'}">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div id="floor">${floorHTML()}</div>
+    </div>
+    <aside class="space-y-4 xl:sticky xl:top-24 grid md:grid-cols-2 xl:grid-cols-1 gap-4 md:space-y-0 xl:space-y-4 items-start">
+      <div id="my-booking">${myBookingHTML()}</div>
+      <div class="sheet-backdrop" id="sheet-backdrop" data-act="close-panel"></div>
+      <div id="desk-panel" class="bg-white shadow-soft xl:rounded-3xl p-5" role="region" aria-label="Selected place">${panelHTML()}</div>
+      <section class="bg-white/70 rounded-3xl p-5">
+        <h2 class="font-display font-semibold flex items-center gap-2"><span class="relative flex w-2 h-2"><span class="absolute inset-0 rounded-full bg-free animate-ping opacity-60"></span><span class="relative w-2 h-2 rounded-full bg-free"></span></span>Live in the office</h2>
+        <p class="text-xs text-plum-500 mt-0.5">Anonymous: you see that a desk changed, never who took it.</p>
+        <ul id="feed-list" class="mt-2 divide-y divide-plum-800/5">${feedItems()}</ul>
+      </section>
+    </aside>
+  </section>`;
+}
+function floorHTML() {
+  const fc = state.filter === 'free' ? 'f-free' : state.filter === 'team' ? 'f-team' : '';
+  return `<div class="floor ${fc} rounded-[28px] p-3 sm:p-4 shadow-lift">
+    <div class="flex items-center gap-3 px-1 pb-3 text-[11px] text-plum-200"><i data-lucide="sun" class="text-sun-400"></i><div class="windows flex-1"></div><span>Windows</span><span class="hidden sm:flex items-center gap-1 pl-2 text-plum-300"><i data-lucide="door-open"></i>Emergency exit</span></div>
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_0.82fr]">
+      <div class="md:col-span-2 xl:col-start-1 xl:row-start-1">${zoneCard('Q')}</div>
+      <div class="order-last md:col-span-2 xl:col-span-1 xl:order-none xl:col-start-3 xl:row-start-1 xl:row-span-3" id="callzone">${callZoneCard()}</div>
+      <div class="xl:col-start-1 xl:row-start-2">${zoneCard('A')}</div>
+      <div class="xl:col-start-2 xl:row-start-2">${zoneCard('B')}</div>
+      <div class="xl:col-start-1 xl:row-start-3">${zoneCard('C')}</div>
+      <div class="xl:col-start-2 xl:row-start-3">${zoneCard('D')}</div>
+      <div class="order-last xl:order-none xl:col-span-2 xl:col-start-1 xl:row-start-4">
+        <div class="zone bg-plum-700 text-cream-100 flex flex-wrap items-center gap-x-4 gap-y-1"><span class="font-display font-semibold flex items-center gap-2"><i data-lucide="door-open"></i>Entrance</span><span class="text-sm text-plum-100">Lockers. Check in at the desk itself by tapping your phone or work card (NFC).</span></div>
+      </div>
+      <div class="order-last xl:order-none xl:col-start-3 xl:row-start-4">
+        <div class="zone tone-sand flex items-center gap-3"><i data-lucide="coffee" class="text-xl text-plum-600"></i><span><b class="font-display font-semibold block leading-tight">Kitchen</b><span class="text-sm text-plum-600">Water, coffee, lunch</span></span></div>
+      </div>
+    </div>
+  </div>`;
+}
+function deskBtn(id) {
+  const st = status(id); const sel = state.sel && state.sel.type === 'desk' && state.sel.id === id;
+  const mate = teammateAt(id);
+  const label = { free: 'free', taken: 'taken', team: `${mate} sits here`, mine: 'your desk' }[st];
+  const inner = st === 'mine' ? '<i data-lucide="check" style="width:16px;height:16px"></i>' : st === 'free' ? `<span class="opacity-80">${+id.slice(1)}</span>` : '';
+  return `<button type="button" class="desk desk-${st} ${sel ? 'is-selected' : ''}" data-desk="${id}" aria-label="Desk ${id}, ${label}" title="${id}: ${label}">${inner}</button>`;
+}
+function zoneCard(z) {
+  const Z = ZONES[z]; const ids = desksOf(z); const lv = level(z);
+  const body = z === 'Q'
+    ? `<div class="grid grid-cols-6 sm:grid-cols-12 gap-1.5 justify-items-center">${ids.map(deskBtn).join('')}</div>`
+    : `<div class="flex flex-wrap gap-2">${[0, 1, 2, 3, 4].slice(0, ids.length / 4).map(g => `<div class="island">${ids.slice(g * 4, g * 4 + 4).map(deskBtn).join('')}</div>`).join('')}</div>`;
+  return `<section class="zone tone-${Z.tone}" data-zone="${z}" aria-label="${Z.name}">
+    <header class="flex items-start justify-between gap-2 mb-2.5">
+      <div><h3 class="font-display font-semibold leading-tight">${Z.name}</h3><p class="text-xs text-plum-600">${Z.sub}</p></div>
+      <div class="text-right shrink-0"><span class="text-xs font-semibold tabular-nums" data-free="${z}">${freeIn(z)} of ${ids.length} free</span>
+        <span class="flex items-center justify-end gap-1.5 mt-1 text-[11px] text-plum-600" title="Airthings sensor, ${Z.name}"><span class="lv lv-${lv}" data-lv="${z}"></span><span data-sensor="${z}-noise">${Math.round(SENS[z].noise)}</span> dB · <span data-sensor="${z}-co2">${Math.round(SENS[z].co2)}</span> ppm</span></div>
+    </header>
+    ${body}
+  </section>`;
+}
+function roomLeft(r) { return r.until ? Math.max(1, Math.round((r.until - new Date()) / 60000)) : 0; }
+function callZoneCard() {
+  const item = r => {
+    const busy = !!r.until; const mine = state.myRoom && state.myRoom.id === r.id; const sel = state.sel && state.sel.type === 'room' && state.sel.id === r.id;
+    return `<button data-room="${r.id}" class="booth w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-3 ${mine ? 'bg-plum-800 text-cream-50 ring-2 ring-teal-400' : busy ? 'bg-white/50' : 'bg-white'} ${sel ? 'outline outline-[3px] outline-plum-800 outline-offset-2' : ''}">
+      <span class="w-8 h-8 rounded-lg grid place-items-center ${mine ? 'bg-teal-400 text-plum-900' : busy ? 'bg-taken/15 text-taken' : 'bg-free/15 text-free'}"><i data-lucide="${r.kind === 'booth' ? 'phone' : 'users'}"></i></span>
+      <span class="flex-1 min-w-0"><b class="block text-sm leading-tight">${r.name}</b><span class="text-xs ${mine ? 'text-plum-100' : 'text-plum-600'}" data-roomstatus="${r.id}">${mine ? `Yours until ${hhmm(r.until)}` : busy ? `In use, free in ${roomLeft(r)} min` : r.kind === 'booth' ? 'Free, up to 30 min' : `Free, ${r.cap} seats`}</span></span>
+      <i data-lucide="chevron-right" class="opacity-40"></i></button>`;
+  };
+  const booths = state.rooms.filter(r => r.kind === 'booth'), rooms = state.rooms.filter(r => r.kind === 'room');
+  return `<section class="zone tone-blush h-full" aria-label="Call zone">
+    <header class="mb-2.5"><h3 class="font-display font-semibold leading-tight">Call zone</h3><p class="text-xs text-plum-600">4 Framery booths and 2 meeting rooms</p></header>
+    <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-1">${booths.map(item).join('')}</div>
+    <p class="text-[11px] text-plum-600 mt-3 mb-2">Meeting rooms</p>
+    <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-1">${rooms.map(item).join('')}</div>
+    <p class="text-[11px] text-plum-600 mt-3 leading-snug">Booths are for calls: up to 30 min per booking. Empty booths are released.</p>
+  </section>`;
+}
+function myBookingHTML() {
+  const d = curDay(); const k = dayKey(d); const b = state.mine[k];
+  const others = Object.entries(state.mine).filter(([kk]) => kk !== k);
+  if (!b) return `<section class="rounded-3xl border-2 border-dashed border-plum-300 p-5">
+    <p class="text-sm text-plum-500">${isToday(d) ? 'Today' : dayLabel(d)}</p>
+    <h2 class="font-display font-semibold text-xl mt-0.5">No desk booked yet</h2>
+    <p class="text-sm text-plum-600 mt-1">Tap a green desk on the map, or let us find one next to your team.</p>
+    <button data-act="near-team" class="mt-4 w-full rounded-full bg-plum-800 text-cream-50 py-3 font-semibold hover:bg-plum-700 transition-colors">Find a desk near my team</button>
+    ${others.length ? `<p class="text-xs text-plum-500 mt-3">Also booked: ${others.map(([kk, v]) => `${dayLabel(new Date(kk + 'T00:00'))} ${v.desk}`).join(', ')}</p>` : ''}
+  </section>`;
+  const z = b.desk[0]; const today = isToday(d);
+  return `<section class="rounded-3xl bg-plum-800 text-cream-50 p-5 shadow-lift relative overflow-hidden">
+    <div class="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-plum-700"></div>
+    <div class="relative">
+      <p class="text-sm text-plum-200">${today ? 'Today' : dayLabel(d)}, your desk</p>
+      <div class="flex items-end gap-3 mt-1"><span class="font-display font-extrabold text-5xl leading-none">${b.desk}</span><span class="text-sm text-plum-200 pb-1">${ZONES[z].name}</span></div>
+      <div class="mt-4 rounded-2xl bg-plum-700/80 p-3 flex items-center gap-3">
+        ${b.checkedIn
+          ? `<span class="w-10 h-10 rounded-full bg-teal-400 text-plum-900 grid place-items-center text-lg"><i data-lucide="circle-check"></i></span><span class="text-sm"><b class="block">Checked in</b>Desk set to ${HEIGHT.sit} cm, LED ring shows it is taken</span>`
+          : today
+            ? `<span class="w-10 h-10 rounded-full bg-sun-400 text-plum-900 grid place-items-center text-lg"><i data-lucide="nfc"></i></span><span class="text-sm"><b class="block">Not checked in</b>Released 30 min after your start if nobody taps in. You get a warning 10 min before.</span>`
+            : `<span class="w-10 h-10 rounded-full bg-plum-600 grid place-items-center text-lg"><i data-lucide="calendar"></i></span><span class="text-sm"><b class="block">Booked</b>Check-in opens on the day</span>`}
+      </div>
+      <div class="mt-4 flex gap-2">
+        ${today && !b.checkedIn ? `<button data-act="checkin" class="flex-1 rounded-full bg-teal-400 text-plum-900 py-3 font-semibold hover:bg-teal-300 transition-colors inline-flex items-center justify-center gap-2"><i data-lucide="nfc"></i>Tap to check in</button>` : ''}
+        ${b.checkedIn ? `<button data-act="tip" class="flex-1 rounded-full bg-cream-50 text-plum-800 py-3 font-semibold inline-flex items-center justify-center gap-2"><i data-lucide="armchair"></i>Chair and monitor tip</button>` : ''}
+        <button data-act="cancel" class="rounded-full border border-plum-400 px-4 py-3 text-sm font-semibold hover:bg-plum-700 transition-colors ${!today ? 'flex-1' : ''}">${b.checkedIn ? 'Leave desk' : 'Cancel booking'}</button>
+      </div>
+      ${state.myRoom ? `<p class="mt-3 text-sm text-plum-100 flex items-center gap-2"><i data-lucide="phone"></i>${state.rooms.find(r => r.id === state.myRoom.id).name} is yours until ${hhmm(state.myRoom.until)}</p>` : ''}
+    </div>
+  </section>`;
+}
+function panelHTML() {
+  if (!state.sel) return `<div class="text-center py-6"><span class="mx-auto w-12 h-12 rounded-full bg-cream-100 grid place-items-center text-xl text-plum-500"><i data-lucide="mouse-pointer-click"></i></span><p class="font-display font-semibold mt-3">Tap a desk or a booth</p><p class="text-sm text-plum-600 mt-1">You will see who sits nearby and how loud the zone is right now.</p></div>`;
+  return state.sel.type === 'desk' ? deskPanel(state.sel.id) : roomPanel(state.sel.id);
+}
+function deskPanel(id) {
+  const st = status(id); const z = id[0]; const Z = ZONES[z]; const lv = level(z); const d = curDay(); const k = curKey();
+  const mates = islandOf(id).map(n => teammateAt(n) && { n: teammateAt(n), id: n }).filter(Boolean);
+  const mineNow = state.mine[k];
+  const chip = { free: ['bg-free/15 text-free', 'Free'], taken: ['bg-taken/15 text-taken', 'Taken'], team: ['bg-sun-100 text-plum-800', `${teammateAt(id)} sits here`], mine: ['bg-teal-100 text-teal-600', 'Your desk'] }[st];
+  let cta = '';
+  if (st === 'free') cta = `<button data-act="book" data-id="${id}" class="w-full rounded-full bg-plum-800 text-cream-50 py-3.5 font-semibold hover:bg-plum-700 transition-colors inline-flex items-center justify-center gap-2"><i data-lucide="${mineNow ? 'arrow-left-right' : 'calendar-check'}"></i>${mineNow ? `Move from ${mineNow.desk} to ${id}` : `Book desk ${id}`}</button><p class="text-xs text-plum-500 text-center mt-2">For ${isToday(d) ? 'today' : dayLabel(d)}. One desk per day.</p>`;
+  else if (st === 'mine') cta = isToday(d) && !mineNow.checkedIn ? `<button data-act="checkin" class="w-full rounded-full bg-teal-400 text-plum-900 py-3.5 font-semibold inline-flex items-center justify-center gap-2"><i data-lucide="nfc"></i>Tap to check in</button>` : `<p class="text-sm text-plum-600 text-center">${mineNow.checkedIn ? `Checked in, desk at ${HEIGHT.sit} cm.` : 'Booked. Check-in opens on the day.'}</p>`;
+  else cta = `<button data-act="near-team" class="w-full rounded-full border-2 border-plum-800 py-3 font-semibold hover:bg-plum-800 hover:text-cream-50 transition-colors">Find a free desk near my team</button>`;
+  return `<div class="flex items-start justify-between gap-3">
+      <div><p class="text-sm text-plum-500">${Z.name}</p><h2 class="font-display font-bold text-3xl leading-none mt-1">Desk ${id}</h2></div>
+      <div class="flex items-center gap-2"><span class="rounded-full px-3 py-1 text-xs font-semibold ${chip[0]}">${chip[1]}</span><button data-act="close-panel" class="xl:hidden w-8 h-8 rounded-full bg-cream-100 grid place-items-center" aria-label="Close"><i data-lucide="x"></i></button></div>
+    </div>
+    <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
+      <div class="rounded-2xl bg-cream-100 p-3"><dt class="text-xs text-plum-500 flex items-center gap-1"><i data-lucide="move-vertical"></i>Your height</dt><dd class="font-semibold mt-0.5">${HEIGHT.sit} cm sit, ${HEIGHT.stand} cm stand</dd></div>
+      <div class="rounded-2xl p-3 ${lv === 'bad' ? 'bg-taken/10' : lv === 'warn' ? 'bg-sun-100' : 'bg-teal-100'}"><dt class="text-xs text-plum-500 flex items-center gap-1"><span class="lv lv-${lv}"></span>Zone right now</dt><dd class="font-semibold mt-0.5">${Math.round(SENS[z].noise)} dB, ${Math.round(SENS[z].co2)} ppm</dd></div>
+    </dl>
+    ${lv === 'bad' ? `<p class="mt-2 text-sm text-taken flex gap-2"><i data-lucide="triangle-alert" class="mt-0.5"></i>${Z.name} is loud and stuffy. The quiet zone has ${freeIn('Q')} free desks.</p>` : ''}
+    <div class="mt-3 text-sm">${mates.length ? `<p class="flex items-center gap-2"><i data-lucide="users" class="text-plum-500"></i><span>Next to ${mates.map(m => `<b>${m.n}</b> (${m.id})`).join(' and ')}</span></p>` : `<p class="flex items-center gap-2 text-plum-500"><i data-lucide="users"></i>No teammates at this desk group</p>`}</div>
+    <p class="mt-2 text-xs text-plum-500 flex items-center gap-2"><i data-lucide="cpu"></i>GoBright Connect unit, LINAK motor, LED presence ring</p>
+    <div class="mt-5">${cta}</div>`;
+}
+function roomPanel(id) {
+  const r = state.rooms.find(x => x.id === id); const mine = state.myRoom && state.myRoom.id === id; const busy = !!r.until;
+  const durations = r.kind === 'booth' ? [15, 30] : [30, 60];
+  return `<div class="flex items-start justify-between gap-3">
+      <div><p class="text-sm text-plum-500">Call zone${r.kind === 'booth' ? ', Framery booth' : ''}</p><h2 class="font-display font-bold text-3xl leading-none mt-1">${r.name}</h2></div>
+      <button data-act="close-panel" class="xl:hidden w-8 h-8 rounded-full bg-cream-100 grid place-items-center" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <p class="mt-3 text-sm text-plum-600">${r.kind === 'booth' ? 'Take client calls and online meetings here, so your neighbours can focus and clients do not hear the open space.' : `Meeting room for up to ${r.cap} people.`}</p>
+    <div class="mt-4">
+    ${mine ? `<div class="rounded-2xl bg-plum-800 text-cream-50 p-4"><p class="text-sm text-plum-200">Booked for you</p><p class="font-display font-semibold text-2xl">Until ${hhmm(r.until)}</p><p class="text-sm text-plum-200" data-roomstatus2="${r.id}">${roomLeft(r)} min left</p></div><button data-act="end-room" class="mt-3 w-full rounded-full border-2 border-plum-800 py-3 font-semibold">End now and free the ${r.kind}</button>`
+      : busy ? `<div class="rounded-2xl bg-taken/10 p-4 text-sm"><b>In use.</b> Free in ${roomLeft(r)} min. ${r.kind === 'booth' ? `Booths free now: ${state.rooms.filter(x => x.kind === 'booth' && !x.until).map(x => x.name).join(', ') || 'none'}.` : ''}</div>`
+      : state.myRoom ? `<p class="text-sm rounded-2xl bg-sun-100 p-4">You already have ${state.rooms.find(x => x.id === state.myRoom.id).name} until ${hhmm(state.myRoom.until)}. End it first to book another.</p>`
+      : `<p class="text-sm font-semibold mb-2">Book from now for</p><div class="grid grid-cols-2 gap-2">${durations.map(m => `<button data-act="book-room" data-id="${r.id}" data-min="${m}" class="rounded-2xl bg-plum-800 text-cream-50 py-3.5 font-semibold hover:bg-plum-700 transition-colors">${m} min</button>`).join('')}</div>${r.kind === 'booth' ? '<p class="text-xs text-plum-500 mt-2">Max 30 min, so 4 booths are enough for 120 people.</p>' : ''}`}
+    </div>`;
+}
+
+/* ---------- booking actions ---------- */
+function refreshBook(changed = []) {
+  if (state.view !== 'book') return;
+  $('#my-booking').innerHTML = myBookingHTML();
+  $('#desk-panel').innerHTML = panelHTML();
+  changed.forEach(id => { const el = $(`[data-desk="${id}"]`); if (el) el.outerHTML = deskBtn(id); });
+  Object.keys(ZONES).forEach(z => { const el = $(`[data-free="${z}"]`); if (el) el.textContent = `${freeIn(z)} of ${ZONES[z].n} free`; });
+  $$('[data-day]').forEach(b => { const i = +b.dataset.day; const k = dayKey(state.days[i]); const m = state.mine[k]; const span = b.querySelector('span:last-child'); const on = i === state.dayIdx; span.innerHTML = `${dayLabel(state.days[i])} · ${m ? `<b class="${on ? 'text-teal-300' : 'text-teal-600'}">${m.desk}</b>` : `${DESKS.length - bookedCount(k)} free`}`; });
+  icons();
+  $('#live-count').textContent = bookedCount();
+}
+function selectDesk(id, { scroll = false, open = true } = {}) {
+  const prev = state.sel && state.sel.type === 'desk' ? state.sel.id : null;
+  state.sel = { type: 'desk', id };
+  refreshBook([prev, id].filter(Boolean));
+  if (scroll) { const el = $(`[data-desk="${id}"]`); el && el.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'center' }); }
+  if (open) openSheet();
+}
+function openSheet() { $('#desk-panel')?.classList.add('open'); $('#sheet-backdrop')?.classList.add('open'); }
+function closeSheet() { $('#desk-panel')?.classList.remove('open'); $('#sheet-backdrop')?.classList.remove('open'); }
+function bookDesk(id, key = curKey(), { quiet = false } = {}) {
+  const prev = state.mine[key];
+  if (status(id, key) !== 'free' && !(prev && prev.desk === id)) { toast({ title: `${id} was just taken`, body: 'Someone booked it a moment ago. Pick another green desk.', icon: 'circle-x', tone: 'bad' }); return false; }
+  state.mine[key] = { desk: id, checkedIn: prev ? prev.checkedIn : false };
+  save();
+  if (key === curKey()) { refreshBook([prev && prev.desk, id].filter(Boolean)); const el = $(`[data-desk="${id}"]`); el && el.classList.add('pop'); }
+  vibrate(30);
+  const day = state.days.find(d => dayKey(d) === key);
+  if (!quiet) toast({ title: prev ? `Moved to desk ${id}` : `Desk ${id} booked`, body: `${isToday(day) ? 'Today' : dayLabel(day)}, ${ZONES[id[0]].name}. ${prev && prev.checkedIn ? `Desk set to ${HEIGHT.sit} cm.` : 'Check in with one tap when you arrive.'}`, icon: 'calendar-check', action: prev ? null : { label: 'Undo', fn: () => cancelBooking(key) } });
+  feed(prev ? `You moved from ${prev.desk} to ${id}` : `You booked ${id}`, 'calendar-check');
+  return true;
+}
+function cancelBooking(key = curKey()) {
+  const b = state.mine[key]; if (!b) return;
+  delete state.mine[key]; save();
+  refreshBook([b.desk]);
+  toast({ title: b.checkedIn ? `You left desk ${b.desk}` : `Booking for ${b.desk} cancelled`, body: 'The desk is free for others again.', icon: 'circle-x', tone: 'info' });
+  feed(`${b.desk} is free again`, 'circle-x');
+  if (state.view === 'day') renderStage();
+}
+function nearTeam(key = curKey()) {
+  let best = null, score = -1;
+  for (const id of DESKS) {
+    if (status(id, key) !== 'free') continue;
+    const s = islandOf(id).filter(n => state.occ[key][n] && state.occ[key][n].startsWith('team:')).length * 10 + (id[0] === 'B' ? 3 : 0);
+    if (s > score) { score = s; best = id; }
+  }
+  return best;
+}
+function bookRoom(id, min) {
+  const r = state.rooms.find(x => x.id === id);
+  if (r.until) { toast({ title: `${r.name} is in use`, icon: 'circle-x', tone: 'bad' }); return; }
+  if (state.myRoom) { toast({ title: 'You already have a booth', body: 'End it first to book another.', icon: 'info', tone: 'warn' }); return; }
+  r.until = addMin(new Date(), min); state.myRoom = { id, until: r.until }; save();
+  vibrate(30);
+  toast({ title: `${r.name} booked for ${min} min`, body: `Yours until ${hhmm(r.until)}. Your client will not hear the open space.`, icon: 'phone-call' });
+  feed(`You booked ${r.name} for ${min} min`, 'phone');
+  refreshRooms();
+}
+function endRoom() {
+  if (!state.myRoom) return; const r = state.rooms.find(x => x.id === state.myRoom.id);
+  r.until = null; state.myRoom = null; save();
+  toast({ title: `${r.name} is free again`, icon: 'phone-off', tone: 'info' });
+  refreshRooms();
+}
+function refreshRooms() {
+  const cz = $('#callzone'); if (cz) cz.innerHTML = callZoneCard();
+  if (state.view === 'book') { $('#desk-panel').innerHTML = panelHTML(); $('#my-booking').innerHTML = myBookingHTML(); }
+  if (state.view === 'day') renderStage();
+  icons();
+}
+
+/* ---------- check-in (NFC) + chair tip: the two screens our deck said were still missing ---------- */
+function openCheckin(key = todayKey()) {
+  let b = state.mine[key];
+  if (!b) { const id = status('B12', key) === 'free' ? 'B12' : nearTeam(key); bookDesk(id, key, { quiet: true }); b = state.mine[key]; }
+  overlay(`<div class="w-full max-w-md max-h-[92vh] overflow-auto bg-cream-50 rounded-[32px] p-6 sm:p-8 shadow-lift relative text-center" role="dialog" aria-modal="true" aria-labelledby="ci-title">
+    <button data-act="close-overlay" class="absolute right-4 top-4 w-9 h-9 rounded-full bg-white grid place-items-center" aria-label="Close"><i data-lucide="x"></i></button>
+    <div id="ci-body">
+      <p class="text-sm text-plum-500">Desk ${b.desk}, ${ZONES[b.desk[0]].name}</p>
+      <h2 id="ci-title" class="font-display font-bold text-2xl mt-1">Hold your phone near the desk unit</h2>
+      <div class="relative w-40 h-40 mx-auto my-8"><span class="nfc-ring"></span><span class="nfc-ring"></span><span class="nfc-ring"></span>
+        <span class="absolute inset-6 rounded-full bg-plum-800 text-teal-300 grid place-items-center text-5xl"><i data-lucide="nfc"></i></span></div>
+      <button data-act="do-tap" class="w-full rounded-full bg-plum-800 text-cream-50 py-4 font-semibold text-lg hover:bg-plum-700 transition-colors">Tap</button>
+      <p class="text-xs text-plum-500 mt-3">A work card works too. If the Wi‑Fi is down, the desk can still be set by hand.</p>
+    </div></div>`);
+}
+function doTap() {
+  const key = todayKey(); const b = state.mine[key];
+  vibrate([40, 60, 40]);
+  $('#ci-body').innerHTML = `<p class="text-sm text-plum-500">Checked in at ${b.desk}</p>
+    <h2 class="font-display font-bold text-2xl mt-1">The desk moves to your height</h2>
+    <p class="font-display font-extrabold text-5xl tabular-nums mt-4" aria-live="polite"><span id="cm">65</span><span class="text-xl"> cm</span></p>
+    <div class="relative h-44 mx-auto my-4 w-64" aria-hidden="true">
+      <div class="absolute inset-x-0 bottom-0 h-2 rounded-full bg-plum-200"></div>
+      <div id="desk-top" class="absolute left-6 right-6 bottom-2">
+        <div class="mx-auto w-20 h-12 rounded-md bg-teal-400 mb-1 relative"><div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-plum-300"></div></div>
+        <div class="h-3 rounded-full bg-plum-800 relative"><span class="absolute right-3 top-0.5 w-6 h-1.5 rounded bg-coral-500"></span><span class="absolute -right-1 -top-1 w-4 h-4 rounded-full bg-teal-400 shadow-[0_0_14px_4px_rgba(108,195,181,.8)]"></span></div>
+        <div class="flex justify-between px-6"><div id="leg1" class="w-2 bg-plum-300" style="height:52px"></div><div id="leg2" class="w-2 bg-plum-300" style="height:52px"></div></div>
+      </div>
+    </div>
+    <div id="ci-next" class="h-14"></div>`;
+  b.checkedIn = true; save();
+  requestAnimationFrame(() => {
+    const legs = [$('#leg1'), $('#leg2')];
+    legs.forEach(l => { l.style.transition = 'height 1.8s cubic-bezier(.4,0,.2,1)'; l.style.height = '96px'; });
+    const t0 = performance.now(), dur = reduceMotion() ? 1 : 1800;
+    const step = t => { const p = Math.min(1, (t - t0) / dur); const v = 65 + (HEIGHT.sit - 65) * (1 - Math.pow(1 - p, 3)); const cm = $('#cm'); if (!cm) return; cm.textContent = Math.round(v); if (p < 1) requestAnimationFrame(step); else showTip(); };
+    requestAnimationFrame(step);
+  });
+  refreshBook([b.desk]);
+  feed(`You checked in at ${b.desk}`, 'nfc');
+  if (state.view === 'day') renderStage();
+}
+function tipHTML() {
+  return `<ul class="text-left space-y-2">
+    <li class="rounded-2xl bg-white p-3 flex gap-3"><span class="w-9 h-9 rounded-xl bg-coral-100 text-coral-600 grid place-items-center"><i data-lucide="armchair"></i></span><span class="text-sm"><b class="block">Chair: lower the seat</b>Feet flat on the floor, knees at about 90°</span></li>
+    <li class="rounded-2xl bg-white p-3 flex gap-3"><span class="w-9 h-9 rounded-xl bg-teal-100 text-teal-600 grid place-items-center"><i data-lucide="monitor"></i></span><span class="text-sm"><b class="block">Monitor: raise to eye level</b>Top of the screen at your eyes, an arm’s length away</span></li>
+  </ul>`;
+}
+function showTip() {
+  const n = $('#ci-next'); if (!n) return;
+  n.outerHTML = `<div class="rise"><p class="font-semibold mb-2 text-left">Your setup tip</p>${tipHTML()}<p class="text-xs text-plum-500 mt-3">Chairs and monitors have no motor, so this tip helps you set them by hand.</p><button data-act="close-overlay" class="mt-4 w-full rounded-full bg-plum-800 text-cream-50 py-3.5 font-semibold">Done</button></div>`;
+  icons();
+}
+function overlay(html) {
+  $('#overlay').innerHTML = `<div class="fixed inset-0 z-[80] bg-plum-900/60 backdrop-blur-sm grid place-items-center p-4 rise" data-backdrop>${html}</div>`;
+  icons(); document.body.style.overflow = 'hidden';
+  const f = $('#overlay button'); f && f.focus({ preventScroll: true });
+}
+function closeOverlay() { $('#overlay').innerHTML = ''; document.body.style.overflow = ''; }
+
+/* =========================================================
+   VIEW 2 · Kasia's day (scenario, slides 8, 17 and 26)
+   ========================================================= */
+const STEPS = [
+  { t: 'Day before', g: ['G6', 'G5'], before: 'Books in the old app. No map, so she does not know where her team sits.', after: 'Books desk B12 in zone B, next to her team.', screen: 'book', icon: 'calendar' },
+  { t: '7:50', g: ['G6', 'G1'], before: 'Her booked desk is taken, and the chair and monitor are not adjusted.', after: 'Unused bookings are released, so B12 is free. One tap: the desk goes to 72 cm and she gets a chair tip.', screen: 'checkin', icon: 'nfc' },
+  { t: '8:10', g: ['G6'], before: 'Desks are taken without booking. No rules, no warnings.', after: 'If she were late, she would get a warning 10 min before her desk is released.', screen: 'release', icon: 'bell' },
+  { t: '11:00', g: ['G5'], before: 'She does not know where the team sits.', after: 'She sees Tomek on the map.', screen: 'team', icon: 'users' },
+  { t: '13:40', g: ['G3'], before: 'Sitting since the morning. Sandwich at the desk, no water.', after: 'After her call, the watch says: stand up and drink water.', screen: 'watch', icon: 'watch' },
+  { t: '14:00', g: ['G2', 'G4'], before: 'Zone B is loud and stuffy. Clients hear background noise.', after: 'Zone B has been loud for 15 min: one alert, and she moves to the quiet zone.', screen: 'alert', icon: 'bell-ring' },
+  { t: '14:05', g: ['G4'], before: 'Nobody notices the air until people get headaches.', after: 'The office manager sees “Zone B: CO₂ high, ventilate”, opens the windows and marks it done.', screen: 'manager', icon: 'wind' },
+  { t: '14:30', g: ['G2'], before: 'Client calls at an open desk. Neighbours and clients both suffer.', after: 'She books a booth for 30 minutes for a client call.', screen: 'booth', icon: 'phone-call' },
+  { t: '15:00', g: ['G1', 'G2', 'G3', 'G4'], before: 'Headache, eyes hurt.', after: 'No headache.', screen: 'done', icon: 'smile' },
+  { t: 'Weekly', g: ['G7'], before: 'The manager sees nothing until sick leave rises.', after: 'The office manager sees only anonymous team trends, for groups of 5 or more.', screen: 'weekly', icon: 'bar-chart-3' }
+];
+const GROUP_NAMES = { G1: 'Unadjusted workstation', G2: 'Noise, lack of focus', G3: 'Sitting without breaks', G4: 'Poor office environment', G5: 'Organisation problems', G6: 'Morning desk hunting', G7: 'Wellbeing noticed too late' };
+function viewDay() {
+  return `<section>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div class="max-w-2xl">
+        <h1 class="font-display font-bold text-3xl sm:text-4xl leading-tight">Kasia’s day</h1>
+        <p class="text-plum-600 mt-1">Kasia, 29, works in customer service, 8:00 to 16:00, in the office 3 days a week. Step through her day and use the real screens. What you do here also changes the map.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="inline-flex rounded-full bg-white p-1 text-sm" role="group" aria-label="Compare">
+          <button data-mode="before" aria-pressed="${state.mode === 'before'}" class="px-4 py-2 rounded-full font-semibold ${state.mode === 'before' ? 'bg-taken text-white' : 'text-plum-600'}">Before</button>
+          <button data-mode="after" aria-pressed="${state.mode === 'after'}" class="px-4 py-2 rounded-full font-semibold ${state.mode === 'after' ? 'bg-plum-800 text-cream-50' : 'text-plum-600'}">With Brightline</button>
+        </div>
+        <button data-act="autoplay" class="w-11 h-11 rounded-full bg-plum-800 text-cream-50 grid place-items-center" aria-label="${state.autoplay ? 'Pause' : 'Play'} the day"><i data-lucide="${state.autoplay ? 'pause' : 'play'}"></i></button>
+      </div>
+    </div>
+    <div class="mt-6 grid lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
+      <ol id="timeline" class="flex lg:flex-col gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 pb-1">${timelineHTML()}</ol>
+      <div id="stage" class="min-w-0"></div>
+    </div>
+  </section>`;
+}
+function timelineHTML() {
+  return STEPS.map((s, i) => `<li class="shrink-0"><button data-step="${i}" class="w-full text-left rounded-2xl px-4 py-3 flex items-center gap-3 transition-colors ${i === state.step ? 'bg-plum-800 text-cream-50' : 'bg-white hover:bg-cream-200'}" ${i === state.step ? 'aria-current="step"' : ''}>
+    <span class="w-9 h-9 rounded-xl grid place-items-center shrink-0 ${i === state.step ? 'bg-teal-400 text-plum-900' : i < state.step ? 'bg-teal-100 text-teal-600' : 'bg-cream-100 text-plum-500'}"><i data-lucide="${i < state.step ? 'check' : s.icon}"></i></span>
+    <span class="min-w-0"><b class="block font-display tabular-nums">${s.t}</b><span class="hidden lg:block text-xs truncate ${i === state.step ? 'text-plum-200' : 'text-plum-500'}">${s.after}</span></span></button></li>`).join('');
+}
+after.day = () => renderStage();
+function renderStage() {
+  const st = $('#stage'); if (!st) return;
+  const s = STEPS[state.step];
+  const tags = s.g.map(g => `<span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold" title="${GROUP_NAMES[g]}">${g} ${GROUP_NAMES[g].toLowerCase()}</span>`).join('');
+  const before = state.mode === 'before';
+  st.innerHTML = `<div class="rounded-[32px] ${before ? 'bg-taken/10' : 'bg-white'} p-5 sm:p-8 shadow-soft rise" key="${state.step}-${state.mode}">
+    <div class="grid md:grid-cols-[minmax(0,1fr)_auto] gap-8 items-center">
+      <div class="min-w-0">
+        <p class="font-display font-extrabold text-6xl sm:text-7xl leading-none tabular-nums ${before ? 'text-taken' : 'text-plum-800'}">${s.t}</p>
+        <div class="flex flex-wrap gap-1.5 mt-4">${tags}</div>
+        <p class="mt-5 text-xl sm:text-2xl font-display font-semibold leading-snug max-w-md">${before ? s.before : s.after}</p>
+        ${before ? `<p class="mt-3 text-sm text-plum-600">Today, without our system.</p><button data-mode="after" class="mt-5 rounded-full bg-plum-800 text-cream-50 px-5 py-3 font-semibold">See it with Brightline</button>`
+          : `<p class="mt-3 text-sm text-plum-500 max-w-md">Before: ${s.before}</p>`}
+        <div class="mt-6 flex items-center gap-2">
+          <button data-act="prev-step" class="w-11 h-11 rounded-full bg-cream-100 grid place-items-center disabled:opacity-30" ${state.step === 0 ? 'disabled' : ''} aria-label="Previous step"><i data-lucide="chevron-left"></i></button>
+          <button data-act="next-step" class="rounded-full bg-cream-100 px-5 h-11 font-semibold inline-flex items-center gap-2 disabled:opacity-30" ${state.step === STEPS.length - 1 ? 'disabled' : ''}>Next: ${STEPS[Math.min(state.step + 1, STEPS.length - 1)].t}<i data-lucide="chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="flex justify-center">${before ? beforeVisual(s) : stageScreen(s.screen)}</div>
+    </div>
+    <div class="mt-6 h-1.5 rounded-full bg-cream-200 overflow-hidden"><div class="h-full bg-teal-400 bar-fill" style="width:${(state.step + 1) / STEPS.length * 100}%"></div></div>
+  </div>`;
+  icons();
+}
+function beforeVisual(s) {
+  return `<div class="w-[260px] aspect-square rounded-[40px] bg-white grid place-items-center text-center p-6 border-2 border-dashed border-taken/40">
+    <div><span class="text-6xl text-taken inline-block"><i data-lucide="${s.screen === 'done' ? 'frown' : s.icon}"></i></span><p class="mt-4 text-sm text-plum-600">${s.screen === 'manager' || s.screen === 'weekly' ? 'No data, no alert' : 'No help from the office'}</p></div></div>`;
+}
+function phone(content, time = hhmm(new Date())) {
+  return `<div class="phone"><div class="flex justify-between text-[11px] font-semibold text-plum-500 -mt-1 mb-2 px-1"><span>${time}</span><span class="flex gap-1"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>${content}</div>`;
+}
+function miniMap(hl = [], key = todayKey()) {
+  const sq = id => { const st = status(id, key); const c = { free: 'bg-free', taken: 'bg-taken', team: 'bg-sun-400', mine: 'bg-plum-800 ring-2 ring-teal-400' }[st]; return `<span class="w-[9px] h-[9px] rounded-[2px] ${c} ${hl.includes(id) ? 'ring-2 ring-plum-800 ring-offset-1 animate-pulse' : ''}"></span>`; };
+  const zone = (z, cols) => `<div class="rounded-lg ${ { Q: 'bg-plum-100', B: 'bg-teal-100' }[z] || 'bg-cream-100'} p-1.5"><div class="flex justify-between items-center text-[9px] font-semibold mb-1"><span>${ZONES[z].name}</span><span class="lv lv-${level(z)}" style="width:7px;height:7px"></span></div><div class="grid gap-[2px]" style="grid-template-columns:repeat(${cols},9px)">${desksOf(z).map(sq).join('')}</div></div>`;
+  return `<div class="grid grid-cols-2 gap-1.5">${zone('A', 8)}${zone('B', 10)}${zone('C', 8)}${zone('D', 8)}</div><div class="mt-1.5">${zone('Q', 12)}</div>`;
+}
+function stageScreen(screen) {
+  const k = todayKey(); const b = state.mine[k];
+  switch (screen) {
+    case 'book': return phone(`<p class="font-display font-bold text-lg">Book a desk</p>
+      <div class="mt-1 mb-2 rounded-lg border border-plum-200 px-2 py-1 text-xs flex justify-between"><span>${dayLabel(state.days[0])}</span><i data-lucide="chevron-down"></i></div>
+      ${miniMap(['B12'])}
+      <p class="text-[10px] text-plum-500 mt-1.5">Green free, red taken, yellow teammate. Dot: noise and air.</p>
+      <button data-act="book-b12" class="mt-3 w-full rounded-full ${b && b.desk === 'B12' ? 'bg-teal-400 text-plum-900' : 'bg-plum-800 text-cream-50'} py-2.5 text-sm font-semibold">${b && b.desk === 'B12' ? 'Desk B12 booked' : 'Book desk B12'}</button>
+      <button data-act="near-team-day" class="mt-2 w-full rounded-full border-2 border-plum-800 py-2 text-sm font-semibold">Sit near my team</button>`, 'Day before');
+    case 'checkin': return phone(`<p class="text-xs text-plum-500">You are at</p><p class="font-display font-bold text-4xl">${b ? b.desk : 'B12'}</p>
+      ${b && b.checkedIn ? `<div class="mt-3 rounded-2xl bg-teal-100 p-3 text-sm flex gap-2"><i data-lucide="circle-check" class="text-teal-600 mt-0.5"></i><span><b>Checked in</b>, desk at ${HEIGHT.sit} cm</span></div><p class="font-semibold text-sm mt-3 mb-2">Your setup tip</p>${tipHTML()}`
+        : `<div class="relative w-32 h-32 mx-auto my-5"><span class="nfc-ring"></span><span class="nfc-ring"></span><span class="absolute inset-5 rounded-full bg-plum-800 text-teal-300 grid place-items-center text-4xl"><i data-lucide="nfc"></i></span></div>
+        <button data-act="checkin" class="w-full rounded-full bg-plum-800 text-cream-50 py-3 font-semibold">Tap phone on the desk unit</button><p class="text-[11px] text-plum-500 mt-2 text-center">No app screen needed. A work card works too.</p>`}`, '7:50');
+    case 'release': return phone(`<div class="rounded-[22px] bg-plum-900 -m-1 p-4 text-cream-50 min-h-[300px]"><p class="text-center font-display font-bold text-5xl mt-4">8:20</p><p class="text-center text-xs text-plum-200">Thursday</p>
+      <div class="mt-6 rounded-2xl bg-white/95 text-plum-800 p-3 rise"><p class="text-[10px] text-plum-500 flex items-center gap-1"><i data-lucide="bell"></i>Brightline, now</p><p class="font-semibold text-sm mt-1">Desk ${b ? b.desk : 'B12'} will be released in 10 min</p><p class="text-xs text-plum-600">You have not checked in yet. Tap the desk unit when you arrive.</p>
+      <div class="grid grid-cols-2 gap-2 mt-3"><button data-act="checkin" class="rounded-full bg-plum-800 text-cream-50 py-2 text-xs font-semibold">Check in</button><button data-act="release-day" class="rounded-full border border-plum-800 py-2 text-xs font-semibold">Release it</button></div></div></div>`, '8:20');
+    case 'team': {
+      const mates = DESKS.filter(d => teammateAt(d, k)).map(d => ({ n: teammateAt(d, k), id: d }));
+      return phone(`<p class="font-display font-bold text-lg">Where is my team?</p><div class="mt-2">${miniMap(mates.map(m => m.id))}</div>
+      <ul class="mt-3 space-y-1.5">${mates.map(m => `<li class="flex items-center gap-2 text-sm"><span class="w-7 h-7 rounded-full bg-sun-400 grid place-items-center text-xs font-bold">${m.n[0]}</span><b>${m.n}</b><span class="text-plum-500 ml-auto">${m.id}</span></li>`).join('')}<li class="flex items-center gap-2 text-sm text-plum-400"><span class="w-7 h-7 rounded-full bg-cream-100 grid place-items-center text-xs font-bold">P</span>Piotr<span class="ml-auto">Not in today</span></li></ul>
+      <a href="#book" data-act="show-team" class="mt-3 block text-center w-full rounded-full border-2 border-plum-800 py-2 text-sm font-semibold">Show on the big map</a>`, '11:00');
+    }
+    case 'watch': return `<div class="flex flex-col items-center gap-14 py-12"><div class="watch" id="watch">
+      <p class="text-[11px] text-white/60 -mt-1">13:40</p>
+      <div class="w-16 h-16 rounded-full border-4 border-free grid place-items-center text-free text-3xl"><i data-lucide="arrow-up"></i></div>
+      <p class="font-display font-semibold text-center leading-tight">Stand up<br><span class="text-sm font-body font-normal text-white/80">and drink water</span></p>
+      <div class="flex gap-2 w-full"><button data-act="watch-done" class="flex-1 rounded-full bg-free text-white text-xs font-bold py-1.5">Done</button><button data-act="watch-later" class="flex-1 rounded-full bg-white/15 text-xs font-bold py-1.5">Later</button></div>
+    </div></div><p class="sr-only">Two short vibrations. Waits until calls and meetings end. No watch: the reminder comes on the phone.</p>`;
+    case 'alert': {
+      const moved = b && b.desk[0] === 'Q';
+      return phone(moved ? `<div class="text-center py-8"><span class="mx-auto w-16 h-16 rounded-full bg-teal-100 text-teal-600 grid place-items-center text-3xl"><i data-lucide="circle-check"></i></span><p class="font-display font-bold text-xl mt-3">You are at ${b.desk}</p><p class="text-sm text-plum-600 mt-1">Quiet zone, by the windows. Desk set to ${HEIGHT.sit} cm.</p><div class="mt-4 rounded-2xl bg-plum-100 p-3 text-sm flex justify-around"><span><b>${Math.round(SENS.Q.noise)}</b> dB</span><span><b>${Math.round(SENS.Q.co2)}</b> ppm</span></div></div>`
+        : `<div class="rounded-2xl ring-1 ring-plum-800/10 p-3 rise"><p class="text-[10px] text-plum-500 flex items-center gap-1"><span class="w-3 h-3 rounded bg-plum-800"></span>Desk app, now<span class="ml-auto rounded-full bg-plum-200 px-1.5 text-[9px] font-bold text-plum-800">NEW</span></p>
+        <p class="font-display font-semibold mt-1">Zone B is loud and stuffy</p>
+        <div class="grid grid-cols-2 gap-2 mt-2"><div class="rounded-xl ring-1 ring-plum-800/10 p-2"><p class="text-[10px] text-plum-500">Noise</p><p class="font-bold flex items-center gap-1.5"><span class="lv lv-${SENS.B.noise >= 63 ? 'bad' : 'ok'}"></span><span data-sensor="B-noise">${Math.round(SENS.B.noise)}</span> dB</p></div><div class="rounded-xl ring-1 ring-plum-800/10 p-2"><p class="text-[10px] text-plum-500">CO₂</p><p class="font-bold flex items-center gap-1.5"><span class="lv lv-${SENS.B.co2 >= 1200 ? 'bad' : 'ok'}"></span><span data-sensor="B-co2">${Math.round(SENS.B.co2)}</span> ppm</p></div></div>
+        <p class="text-xs mt-2">${freeIn('Q', k)} free desks in the quiet zone right now.</p></div>
+        <button data-act="move-quiet" class="mt-4 w-full rounded-full bg-plum-800 text-cream-50 py-3 font-semibold">Move to quiet zone</button>
+        <button data-act="stay" class="mt-2 w-full rounded-full border-2 border-plum-800 py-2.5 font-semibold">Stay here</button>
+        <p class="text-[11px] text-plum-500 mt-2 text-center">Moving books a new desk and sets your height automatically.</p>`, '14:02');
+    }
+    case 'manager': return `<div class="w-full max-w-[340px] rounded-2xl bg-white ring-1 ring-plum-800/10 shadow-lift overflow-hidden">
+      <div class="flex items-center gap-1.5 px-3 py-2 bg-cream-100 text-[11px] text-plum-500"><span class="w-2.5 h-2.5 rounded-full bg-taken"></span><span class="w-2.5 h-2.5 rounded-full bg-sun-400"></span><span class="w-2.5 h-2.5 rounded-full bg-free"></span><span class="ml-2">Brightline Office, live view</span></div>
+      <div class="p-4">${alertCard(true)}<div class="grid grid-cols-3 gap-2 mt-3">${['A', 'B', 'C'].map(z => `<div class="rounded-xl border-2 p-2 text-[11px] ${{ ok: 'border-free', warn: 'border-sun-400', bad: 'border-taken' }[level(z)]}"><b>Zone ${z}</b><br><span data-sensor="${z}-co2">${Math.round(SENS[z].co2)}</span> ppm</div>`).join('')}</div>
+      <a href="#manager" class="mt-3 block text-center text-sm font-semibold underline underline-offset-2">Open the full dashboard</a></div></div>`;
+    case 'booth': {
+      const booths = state.rooms.filter(r => r.kind === 'booth');
+      return phone(`<p class="font-display font-bold text-lg">Book a phone booth</p><p class="text-xs text-plum-500">Call zone, up to 30 min</p>
+      <ul class="mt-3 space-y-2">${booths.map(r => { const mine = state.myRoom && state.myRoom.id === r.id; return `<li class="rounded-2xl p-3 flex items-center gap-2 ${mine ? 'bg-plum-800 text-cream-50' : 'bg-cream-100'}"><i data-lucide="phone" class="${mine ? 'text-teal-300' : r.until ? 'text-taken' : 'text-free'}"></i><span class="flex-1 text-sm"><b>${r.name}</b><br><span class="text-xs ${mine ? 'text-plum-200' : 'text-plum-500'}">${mine ? `Yours until ${hhmm(r.until)}` : r.until ? `Free in ${roomLeft(r)} min` : 'Free now'}</span></span>${mine ? `<button data-act="end-room" class="text-xs font-semibold underline">End</button>` : !r.until && !state.myRoom ? `<button data-act="book-room" data-id="${r.id}" data-min="30" class="rounded-full bg-plum-800 text-cream-50 px-3 py-1.5 text-xs font-semibold">30 min</button>` : ''}</li>`; }).join('')}</ul>
+      <p class="text-[11px] text-plum-500 mt-3">Empty booths are released, so nobody blocks one for hours.</p>`, '14:30');
+    }
+    case 'done': {
+      const checks = [
+        ['G1', 'Desk set to her height', !!(b && b.checkedIn), 'Check in at 7:50'],
+        ['G2', 'Quiet place for calls', !!state.myRoom || !!(b && b.desk[0] === 'Q'), 'Book a booth or move to the quiet zone'],
+        ['G3', 'Break and water', state.breaks > 0, 'Tap Done on the watch at 13:40'],
+        ['G4', 'Fresh air in zone B', !!state.ventilatedAt, 'Mark the alert done at 14:05']
+      ];
+      const n = checks.filter(c => c[2]).length;
+      return `<div class="w-full max-w-[320px] rounded-[32px] bg-plum-800 text-cream-50 p-6 shadow-lift"><p class="text-sm text-plum-200">Your demo</p><p class="font-display font-extrabold text-5xl">${n}/4</p><p class="text-sm text-plum-200">problems solved today</p>
+      <ul class="mt-4 space-y-2">${checks.map(c => `<li class="flex gap-3 items-start text-sm"><span class="w-6 h-6 rounded-full grid place-items-center shrink-0 ${c[2] ? 'bg-teal-400 text-plum-900' : 'bg-plum-700 text-plum-300'}"><i data-lucide="${c[2] ? 'check' : 'minus'}"></i></span><span><b>${c[0]}</b> ${c[1]}${c[2] ? '' : `<br><span class="text-xs text-plum-300">${c[3]}</span>`}</span></li>`).join('')}</ul></div>`;
+    }
+    case 'weekly': return `<div class="w-full max-w-[340px] rounded-3xl bg-white ring-1 ring-plum-800/10 p-5 shadow-lift"><p class="font-display font-semibold">This week</p><p class="text-xs text-plum-500">Anonymous, team level, groups of 5+</p>${weekBars('B', true)}</div>`;
+  }
+  return '';
+}
+function goStep(i) { state.step = Math.max(0, Math.min(STEPS.length - 1, i)); const tl = $('#timeline'); if (tl) { tl.innerHTML = timelineHTML(); icons(); const a = tl.querySelector('[aria-current]'); a && a.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }); } renderStage(); }
+function stopAutoplay() { if (state.autoplay) { clearInterval(state.autoplay); state.autoplay = null; } }
+function toggleAutoplay() {
+  if (state.autoplay) stopAutoplay();
+  else { state.mode = 'after'; if (state.step === STEPS.length - 1) state.step = 0; state.autoplay = setInterval(() => { if (state.step >= STEPS.length - 1) { stopAutoplay(); render(); return; } goStep(state.step + 1); }, 6500); }
+  render();
+}
+
+/* =========================================================
+   VIEW 3 · Office manager dashboard (screen 4)
+   ========================================================= */
+const WEEK = { desk: 82, booth: 64, adjusted: 71, standing: 35, loud: { A: 12, B: 48, C: 18, D: 27, Q: 3 } };
+function weekBars(z, compact = false) {
+  const rows = [['Desk use', WEEK.desk, 'bg-plum-800'], ['Booth use', WEEK.booth, 'bg-plum-500'], ['Desk adjusted at check-in', WEEK.adjusted, 'bg-free'], ['Average standing time', WEEK.standing, 'bg-sun-400'], [`Time ${z === 'Q' ? 'quiet zone' : 'zone ' + z} too loud`, WEEK.loud[z], 'bg-taken']];
+  return `<ul class="${compact ? 'mt-3 space-y-2.5' : 'mt-4 space-y-4'}">${rows.map(([l, v, c]) => `<li><div class="flex justify-between text-sm"><span>${l}</span><b class="tabular-nums">${v}%</b></div><div class="mt-1 h-2.5 rounded-full bg-cream-200 overflow-hidden"><div class="h-full rounded-full ${c} bar-fill" style="width:0" data-w="${v}"></div></div></li>`).join('')}</ul>`;
+}
+function growBars() { requestAnimationFrame(() => $$('[data-w]').forEach(e => e.style.width = e.dataset.w + '%')); }
+function alertCard(compact = false) {
+  if (!alertActive()) return `<div class="rounded-2xl bg-teal-100 p-4 flex gap-3 items-start rise"><span class="text-teal-600 text-xl"><i data-lucide="circle-check"></i></span><div class="text-sm"><b class="block">Zone B ventilated at ${state.ventilatedAt}</b>CO₂ is going down. No alerts for this zone for an hour.</div></div>`;
+  const mins = Math.max(15, Math.round((new Date() - state.alertSince) / 60000));
+  return `<div class="rounded-2xl border-2 border-taken bg-taken/5 p-4 ${compact ? '' : 'sm:flex'} gap-4 items-center">
+    <div class="flex gap-3 items-start flex-1"><span class="text-taken text-2xl"><i data-lucide="triangle-alert"></i></span><div><p class="font-display font-semibold text-taken leading-tight">Zone B: CO₂ high, ventilate</p><p class="text-xs text-plum-600 mt-0.5">Since ${hhmm(state.alertSince)} (${mins} min), 14 people in the zone</p></div></div>
+    <button data-act="ventilate" class="mt-3 ${compact ? 'w-full' : 'sm:mt-0 w-full sm:w-auto'} rounded-full bg-taken text-white px-5 py-2.5 text-sm font-semibold hover:brightness-110 inline-flex items-center justify-center gap-2"><i data-lucide="wind"></i>Windows open, mark done</button></div>`;
+}
+function sparkline(z) {
+  const h = HIST[z], w = 300, H = 90; const min = 400, max = 1600;
+  const pts = h.map((v, i) => [i / (h.length - 1) * w, H - (Math.min(max, Math.max(min, v)) - min) / (max - min) * H]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const y1200 = H - (1200 - min) / (max - min) * H;
+  return `<svg viewBox="0 0 ${w} ${H}" class="w-full h-24" preserveAspectRatio="none" role="img" aria-label="CO2 today for ${ZONES[z].name}, now ${Math.round(SENS[z].co2)} ppm">
+    <line x1="0" x2="${w}" y1="${y1200}" y2="${y1200}" stroke="#E1534B" stroke-dasharray="4 4" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <path d="${d} L ${w} ${H} L 0 ${H} Z" fill="rgba(108,195,181,.18)"/>
+    <path d="${d}" fill="none" stroke="#2B2440" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1]}" r="4" fill="#6CC3B5" stroke="#2B2440" stroke-width="2"/></svg>`;
+}
+function viewManager() {
+  const tile = z => { const lv = level(z); return `<div class="rounded-2xl bg-white p-4 border-2 ${{ ok: 'border-free/50', warn: 'border-sun-400', bad: 'border-taken' }[lv]}" data-tile="${z}">
+    <div class="flex items-center justify-between"><b class="font-display">${ZONES[z].name}</b><span class="lv lv-${lv}" data-lv="${z}"></span></div>
+    <dl class="mt-2 grid grid-cols-2 gap-1 text-sm"><div><dt class="text-xs text-plum-500">CO₂</dt><dd class="font-bold tabular-nums"><span data-sensor="${z}-co2">${Math.round(SENS[z].co2)}</span> <span class="text-xs font-normal">ppm</span></dd></div><div><dt class="text-xs text-plum-500">Noise</dt><dd class="font-bold tabular-nums"><span data-sensor="${z}-noise">${Math.round(SENS[z].noise)}</span> <span class="text-xs font-normal">dB</span></dd></div></dl>
+    <p class="text-xs text-plum-500 mt-1" data-lvtext="${z}">${levelText[lv]}, ${SENS[z].temp.toFixed(1)} °C</p></div>`; };
+  const booths = state.rooms.filter(r => r.kind === 'booth'); const inUse = booths.filter(r => r.until).length;
+  return `<section>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div><h1 class="font-display font-bold text-3xl sm:text-4xl leading-tight">Office manager dashboard</h1><p class="text-plum-600 mt-1">Live zones during the day, anonymous trends every week.</p></div>
+      <span class="inline-flex items-center gap-2 rounded-full bg-teal-100 text-teal-600 px-4 py-2 text-sm font-semibold"><i data-lucide="shield-check"></i>Groups of 5+ only. No voices, no tracking of people.</span>
+    </div>
+    <div class="mt-6 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-6 items-start">
+      <div class="space-y-4">
+        <div id="mgr-alert">${alertCard()}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${['A', 'B', 'C', 'D', 'Q'].map(tile).join('')}
+          <div class="rounded-2xl bg-white p-4 border-2 border-plum-200"><div class="flex items-center justify-between"><b class="font-display">Booths</b><i data-lucide="phone" class="text-plum-400"></i></div><p class="mt-2 font-bold text-2xl tabular-nums" id="booth-use">${inUse}/4</p><p class="text-xs text-plum-500">in use now, max 30 min each</p></div>
+        </div>
+        <div class="rounded-3xl bg-white p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-display font-semibold">CO₂ today</h2>
+            <label class="text-sm flex items-center gap-2">Zone <select id="mgr-zone" class="rounded-full bg-cream-100 px-3 py-1.5 font-semibold">${['A', 'B', 'C', 'D', 'Q'].map(z => `<option value="${z}" ${state.mgrZone === z ? 'selected' : ''}>${ZONES[z].name}</option>`).join('')}</select></label></div>
+          <div id="spark" class="mt-3">${sparkline(state.mgrZone)}</div>
+          <p class="text-xs text-plum-500 flex items-center gap-2"><span class="inline-block w-5 border-t-2 border-dashed border-taken"></span>Alert line, 1200 ppm. An alert is sent only after 15 min above it, at most once an hour.</p>
+        </div>
+      </div>
+      <div class="rounded-3xl bg-white p-5 sm:p-6">
+        <h2 class="font-display font-semibold text-xl">This week</h2><p class="text-sm text-plum-500">Anonymous, team level</p>
+        <div id="week">${weekBars(state.mgrZone)}</div>
+        <div class="mt-6 flex flex-wrap gap-2"><button data-act="export" class="rounded-full bg-plum-800 text-cream-50 px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2"><i data-lucide="download"></i>Export report</button></div>
+        <div class="mt-6 rounded-2xl bg-cream-100 p-4 text-sm"><p class="font-semibold">What the manager never sees</p><ul class="mt-2 space-y-1 text-plum-600"><li>Who sits where, or one person’s data</li><li>Heart rate, steps or watch activity (it stays on the worker’s phone)</li><li>Voices or what people say: sensors measure only the noise level</li></ul></div>
+      </div>
+    </div>
+  </section>`;
+}
+after.manager = growBars;
+function ventilate() {
+  state.ventilatedAt = hhmm(new Date()); SENS.B.t = { co2: 720, noise: 56 }; save();
+  vibrate(30);
+  toast({ title: 'Zone B marked as ventilated', body: 'CO₂ is going down. Kasia’s zone is fresh again.', icon: 'wind' });
+  feed('Zone B ventilated by the office manager', 'wind');
+  const a = $('#mgr-alert'); if (a) { a.innerHTML = alertCard(); icons(); }
+  if (state.view === 'day') renderStage();
+}
+function exportReport() {
+  const rows = [['Brightline weekly report', 'anonymous, team level, groups of 5+'], [], ['Metric', 'Value'], ['Desk use', WEEK.desk + '%'], ['Booth use', WEEK.booth + '%'], ['Desk adjusted at check-in', WEEK.adjusted + '%'], ['Average standing time', WEEK.standing + '%'], ...Object.entries(WEEK.loud).map(([z, v]) => [`Time ${ZONES[z].name} too loud`, v + '%']), [], ['Zone', 'CO2 now (ppm)', 'Noise now (dB)'], ...Object.keys(SENS).map(z => [ZONES[z].name, Math.round(SENS[z].co2), Math.round(SENS[z].noise)])];
+  const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'brightline-weekly-report.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast({ title: 'Report exported', body: 'brightline-weekly-report.csv', icon: 'download' });
+}
+
+/* =========================================================
+   VIEW 4 · Our project (everything from the deck)
+   ========================================================= */
+const H2 = (t, sub = '') => `<h2 class="font-display font-bold text-2xl sm:text-3xl leading-tight">${t}</h2>${sub ? `<p class="text-plum-600 mt-1 max-w-2xl">${sub}</p>` : ''}`;
+const table = (head, rows, cls = '') => `<div class="overflow-x-auto -mx-4 px-4"><table class="w-full min-w-[640px] text-sm ${cls}"><thead><tr class="text-left text-plum-500">${head.map(h => `<th class="font-semibold py-2 pr-4 border-b-2 border-plum-800">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="align-top border-b border-plum-800/10">${r.map((c, i) => `<td class="py-3 pr-4 ${i === 0 ? 'font-semibold' : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+function viewProject() {
+  const parts = [['p1', 'Case and ideas', 'Ewelina'], ['p2', 'Solution in practice', 'Hania'], ['p3', 'Evaluation and deployment', 'Zuzia Gutkowska'], ['p4', 'Conclusion', 'Zuzia Nowak']];
+  const groups = [
+    ['G1', 'Top priority', 'Unadjusted workstation', ['1 chair never adjusted', '2 monitor at wrong height', '3 no time to set up the desk', '4 don’t know correct settings', '5 neck bent over laptop', '6 back pain increasing']],
+    ['G2', 'Top priority', 'Noise, lack of focus', ['7 neighbour always on a call', '8 too loud to concentrate', '9 online meetings at open desk', '10 no free quiet rooms', '11 clients hear background noise']],
+    ['G3', 'Quick win', 'Sitting without breaks', ['12 no standing up for hours', '13 forget to drink water', '14 skipping lunch break']],
+    ['G4', 'Quick win', 'Poor office environment', ['17 stuffy air', '18 screen glare, bad lighting']],
+    ['G5', 'Quick win', 'Organisation problems', ['21 where does my team sit?', '22 who is in the office?', '26 manager can’t see wellbeing']],
+    ['G6', 'Do soon', 'Morning desk hunting', ['23 not enough desks (80/120)', '24 desks taken without booking']],
+    ['G7', 'Do soon', 'Wellbeing noticed too late', ['seen only when sick leave rises', 'anonymous team data only']]
+  ];
+  const prioC = { 'Top priority': 'bg-taken text-white', 'Quick win': 'bg-teal-400 text-plum-900', 'Do soon': 'bg-sun-400 text-plum-900' };
+  return `<div class="grid lg:grid-cols-[200px_minmax(0,1fr)] gap-8">
+  <nav class="hidden lg:block"><ul class="sticky top-24 space-y-1 text-sm">${parts.map(([id, t, who], i) => `<li><a href="#${id}" data-jump="${id}" class="block rounded-xl px-3 py-2 hover:bg-white"><b class="block">Part ${i + 1}: ${t}</b><span class="text-plum-500">${who}</span></a></li>`).join('')}</ul></nav>
+  <div class="min-w-0 space-y-16">
+    <section class="rounded-[32px] bg-plum-800 text-cream-50 p-6 sm:p-10 relative overflow-hidden">
+      <div class="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-coral-500"></div><div class="absolute right-24 bottom-6 w-16 h-16 rounded-full bg-teal-400"></div><div class="absolute right-48 top-10 w-6 h-6 rounded-full bg-sun-400"></div>
+      <div class="relative max-w-2xl">
+        <p class="text-coral-300 font-semibold">Smart technology for a better workplace</p>
+        <h1 class="font-display font-extrabold text-4xl sm:text-6xl leading-[1.02] mt-3">Brightline: a smarter way to share desks</h1>
+        <p class="text-plum-100 text-lg mt-4">How smart desks, room sensors and phone booths can fix the everyday problems of hot desking.</p>
+        <p class="mt-6 text-sm text-plum-200">Group D: Ewelina, Hania, Zuzia Gutkowska, Zuzia Nowak<br>Fundamentals of HCI, wearables project 2026/2027</p>
+      </div>
+    </section>
+
+    <section id="p1" class="scroll-mt-24 space-y-10">
+      <div><p class="text-coral-600 font-semibold">Part 1, presented by Ewelina</p>${H2('Brightline: 120 people, 80 desks', 'We chose Case B: hot desking causes problems for almost everyone, every day. Unadjusted desks, noise, no breaks, not knowing where the team sits. Most of it can be fixed with existing technology.')}</div>
+      <div class="grid sm:grid-cols-[repeat(3,minmax(0,1fr))_1.3fr] gap-3">
+        ${[['120', 'employees share one office'], ['80', 'desks, booked in an old app'], ['0', 'sensors or phone booths']].map(([n, l]) => `<div class="rounded-3xl bg-white p-5"><p class="font-display font-extrabold text-5xl">${n}</p><p class="text-sm text-plum-600 mt-1">${l}</p></div>`).join('')}
+        <div class="rounded-3xl bg-teal-100 p-5 flex gap-4 items-start"><span class="w-12 h-12 rounded-full bg-teal-400 font-display font-bold grid place-items-center text-xl shrink-0">K</span><div><p class="font-display font-semibold text-lg">Kasia, 29</p><p class="text-sm text-plum-700">Customer service, 8:00 to 16:00, in the office 3 days a week. She answers client calls and emails and joins online meetings. We follow her through the whole presentation.</p></div></div>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">26 notes, 7 problem groups</h3>
+        <div class="mt-4 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">${groups.map(([g, p, t, notes]) => `<article class="rounded-3xl bg-white p-5"><div class="flex items-center justify-between"><span class="font-display font-extrabold text-2xl">${g}</span><span class="rounded-full px-2.5 py-1 text-xs font-semibold ${prioC[p]}">${p}</span></div><h4 class="font-semibold mt-2">${t}</h4><ul class="mt-2 text-sm text-plum-600 space-y-0.5">${notes.map(n => `<li>${n}</li>`).join('')}</ul></article>`).join('')}
+          <article class="rounded-3xl border-2 border-dashed border-plum-300 p-5 text-sm"><p class="font-semibold">Symptoms, not a group</p><p class="text-plum-600 mt-1">15, 16 eye strain and headaches come from G1 to G4, so fixing those fixes the headaches.</p><p class="font-semibold mt-3">Dropped, no tech needed</p><p class="text-plum-600 mt-1">19, 20 lost documents: clean desk policy. 25 lockers far away: office layout.</p></article>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div class="rounded-3xl bg-taken/10 p-5 md:col-span-1"><p class="text-sm text-plum-500">How serious × how often</p><p class="font-display font-bold text-2xl mt-1">Top priority: G1 + G2</p><p class="text-sm text-plum-700 mt-1">The desk and the noise: serious and every day, for everyone.</p></div>
+        <div class="rounded-3xl bg-white p-5 md:col-span-2"><p class="font-semibold">Similar problems, one technology</p><ul class="mt-3 grid sm:grid-cols-3 gap-3 text-sm">${[['G1 + G3', 'Smart desk', 'arrow-up-down'], ['G2 + G4', 'Room sensors', 'activity'], ['G5 + G6', 'Booking app with a map', 'map']].map(([g, t, i]) => `<li class="rounded-2xl bg-cream-100 p-3"><i data-lucide="${i}" class="text-xl text-plum-500"></i><b class="block mt-2">${g}</b>${t}</li>`).join('')}</ul></div>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">What we chose and why</h3>
+        <div class="mt-3">${table(['Problem', 'Technology', 'Real product', 'Why'], [
+          ['G1 + G3', 'Smart sit-stand desk, linked to the booking app', 'GoBright Connect (desks with LINAK motors)', 'The desk remembers the person: you save your height, any desk adjusts at check-in'],
+          ['G2 + G4', 'Room sensors: noise, CO₂, temperature, light', 'Airthings Space CO2 Mini', 'Noise and bad air are invisible until you get a headache. One device, several problems'],
+          ['G2', 'Bookable phone booths and quiet rooms', 'Framery booths, in the same app', 'Calls are the cause: move them out instead of only blocking with headphones'],
+          ['G3', 'Smartwatch or band (worn)', 'Apple Watch, Fitbit, Garmin', 'Always with you, a vibration is private. Voluntary only'],
+          ['G5 + G6', 'Booking app with office map and desk presence', 'GoBright app, LED ring turns red', 'One system: “where is a free desk?” and “where is my team?”'],
+          ['G7', 'Anonymous dashboard (software)', 'Built from the data above', 'The data already exists. Team trends only, never one person']])}</div>
+        <p class="text-sm text-plum-500 mt-3">Not chosen: EEG headband (uncomfortable, very personal data), VR, AR and MR (not needed for desk work), EMG band (meant for lifting).</p>
+      </div>
+      <div class="grid md:grid-cols-2 gap-6 items-start">
+        <div><h3 class="font-display font-semibold text-xl">One open-space floor</h3><p class="text-sm text-plum-600 mt-1">Entrance, lockers, desk, then booths, kitchen and meeting rooms during the day. One noise, CO₂ and light sensor per zone.</p><a href="#book" class="mt-4 inline-flex items-center gap-2 rounded-full bg-plum-800 text-cream-50 px-5 py-2.5 text-sm font-semibold"><i data-lucide="map"></i>Open the live map</a></div>
+        <ul class="grid grid-cols-2 gap-2 text-sm">${[['Zone A', 'Team desks', 'tone-sand'], ['Zone B', 'Kasia, customer service', 'tone-mint'], ['Zone C', 'Team desks', 'tone-sand'], ['Zone D', 'Team desks', 'tone-sand'], ['Quiet zone', 'By the windows, no calls', 'tone-lav'], ['Call zone', '4 booths + 2 rooms', 'tone-blush'], ['Kitchen', 'Water, coffee, lunch', 'tone-sand'], ['Entrance', 'Lockers, exits', 'tone-sand']].map(([a, b, c]) => `<li class="${c} rounded-2xl p-3"><b class="font-display block">${a}</b><span class="text-plum-600">${b}</span></li>`).join('')}</ul>
+      </div>
+    </section>
+
+    <section id="p2" class="scroll-mt-24 space-y-10">
+      <div><p class="text-coral-600 font-semibold">Part 2, presented by Hania</p>${H2('We connect products that already exist', 'What we build ourselves is only the connection: one GoBright app instead of Brightline’s old booking app.')}</div>
+      <ul class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">${[['arrow-up-down', 'Smart desk + GoBright Connect', 'Tap your phone or work card and the desk goes to your height'], ['activity', 'Airthings sensors', 'One per zone, noise and CO₂, the battery lasts for years'], ['phone', '4 Framery booths', 'Quiet calls, booked in the same app'], ['watch', 'Own smartwatch', 'Optional break reminder. No watch: the phone'], ['layout-dashboard', 'Manager dashboard', 'Zones, “ventilate” alerts, anonymous trends']].map(([i, t, d]) => `<li class="rounded-3xl bg-white p-5"><span class="w-11 h-11 rounded-2xl bg-plum-800 text-teal-300 grid place-items-center text-xl"><i data-lucide="${i}"></i></span><p class="font-semibold mt-3">${t}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Version 1, before the check</h3>
+        <p class="text-sm text-plum-600 mt-1">First: LINAK desks, Deskbird app, Jabra headset. Final: one GoBright app, no headset.</p>
+        <div class="mt-3">${table(['Technology', 'Main problem', 'Solution'], [
+          ['Smart sit-stand desk (LINAK)', 'On a hot desk the settings are lost every day', 'The height profile is linked to the booking account and loads after check-in'],
+          ['NFC check-in with the phone', 'Forgotten check-ins and no Wi‑Fi', 'Reminder notification, auto-release; the desk can always be set by hand'],
+          ['Smartwatch reminders', 'Not everyone has a watch, and too many alerts', 'The desk panel gives the same reminder; the watch is optional; max 1 reminder per hour, none during meetings'],
+          ['Air-quality and noise sensors + wall display', 'A red light alone does not fix the air or the noise', 'Sensors connected to the ventilation; staff told what is measured; loud zones link to free booths'],
+          ['Phone booths (Framery)', 'Booths blocked for hours', 'A time limit per booking, visible in the app'],
+          ['Noise-cancelling headset (Jabra)', 'Wearing it all day is tiring', 'Dropped in the final version: calls go to booths, focus work to the quiet zone'],
+          ['Manager dashboard (desktop)', 'Trust: workers feel watched', 'Only anonymous office-level data, no heart rate or activity of single people; rules explained to all staff']])}</div>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Kasia’s screens: phone, watch and computer</h3>
+        <p class="text-sm text-plum-600 mt-1">All four sketches are working screens in this app. The two our deck listed as missing (the chair tip and the booth booking step) are drawn here too.</p>
+        <ul class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">${[['Book a desk', 'Phone, the day before. Green free, red taken, T teammate.', '#book'], ['Break reminder', 'Watch, 13:40, after her call. Done or Later.', 'watch'], ['Zone alert', 'Phone, 14:00. One tap to the quiet zone.', 'alert'], ['Office manager dashboard', 'Live zones, “Zone B: CO₂ high, ventilate”, this week: desk use 82%, booths 64%.', '#manager'], ['Check-in and chair tip', 'One NFC tap, desk at 72 cm, then the chair and monitor tip.', 'checkin'], ['Booth booking', 'Pick a free booth for up to 30 min.', 'booth']].map(([t, d, go], i) => `<li><button data-go="${go}" class="w-full h-full text-left rounded-3xl bg-white p-5 hover:bg-cream-200 transition-colors"><span class="text-xs font-semibold ${i > 3 ? 'text-teal-600' : 'text-plum-500'}">${i < 4 ? 'Screen ' + (i + 1) : 'Added in this app'}</span><b class="block font-display text-lg mt-1">${t}</b><span class="text-plum-600">${d}</span><span class="mt-3 flex items-center gap-1 font-semibold text-plum-800">Try it<i data-lucide="chevron-right"></i></span></button></li>`).join('')}</ul>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div class="rounded-3xl bg-white p-5"><i data-lucide="watch" class="text-2xl text-plum-500"></i><p class="font-display font-semibold text-lg mt-2">Worn: only the watch</p><p class="text-sm text-plum-600">The reminder is about the person and must be private.</p></div>
+        <div class="rounded-3xl bg-white p-5"><i data-lucide="building-2" class="text-2xl text-plum-500"></i><p class="font-display font-semibold text-lg mt-2">Stationary: the rest</p><p class="text-sm text-plum-600">About the place. Works all day, no charging.</p></div>
+        <div class="rounded-3xl bg-taken/10 p-5"><i data-lucide="eye-off" class="text-2xl text-taken"></i><p class="font-display font-semibold text-lg mt-2">Biggest risk: privacy</p><p class="text-sm text-plum-600">So the manager only sees groups of 5 or more.</p></div>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Five changes after the practicality check</h3>
+        <p class="text-sm text-plum-600 mt-1">Simpler, works without a watch, and still solves G1 and G2. Each one is a rule in this app.</p>
+        <ol class="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">${['Reminder from the watch, the phone if there is no watch', 'Check-in is one tap (NFC)', 'Warning 10 min before a desk is released', 'Alerts after 15 min, max 1 an hour', 'Dashboard for 5+ people only; booths max 30 min'].map((t, i) => `<li class="rounded-3xl bg-plum-800 text-cream-50 p-5"><span class="font-display font-extrabold text-3xl text-teal-300">${i + 1}</span><p class="mt-2 text-sm">${t}</p></li>`).join('')}</ol>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Updated map</h3>
+        <div class="mt-3">${table(['Place', 'Part 1', 'Now, after the practicality check'], [
+          ['Entrance', 'Check-in screen and lockers', 'Lockers only. Check-in happens at the desk (tap phone or card, NFC)'],
+          ['Open desk area, zones A–D', '80 smart desks', '80 desks with a GoBright Connect unit; a light shows if a desk is taken; desks nobody checks in to are released after 30 min, with a warning 10 min before'],
+          ['Quiet zone', 'Desks by the windows, no calls', 'Same, and shown on the map with free desks when another zone gets loud'],
+          ['Call zone', '4 phone booths, 2 meeting rooms', '4 Framery booths, max 30 min per booking, empty booths released'],
+          ['Sensors', 'One sensor per zone', 'One Airthings sensor per zone; alert only if it stays loud or stuffy for 15 min, max once an hour'],
+          ['Office manager', '–', 'Dashboard on her computer with anonymous data for groups of 5+ people']])}</div>
+        <a href="#day" class="mt-4 inline-flex items-center gap-2 rounded-full bg-plum-800 text-cream-50 px-5 py-2.5 text-sm font-semibold"><i data-lucide="play"></i>Walk through Kasia’s updated day</a>
+      </div>
+    </section>
+
+    <section id="p3" class="scroll-mt-24 space-y-10">
+      <div><p class="text-coral-600 font-semibold">Part 3, presented by Zuzia Gutkowska</p>${H2('Pilot first, then step by step')}</div>
+      <ol class="relative grid md:grid-cols-4 gap-3">${[['Preparation', 'IT, HR, health and safety, office manager; installation in zone B', '3 weeks', 'Devices work, employees know what data is collected (GDPR)'], ['Pilot', 'Zone B: customer service team, about 30 people, 20 desks, 1 booth', '4 weeks', 'Success criteria from the user requirements are met'], ['Next zones', 'Zones A and C, about 60 people, 2 more booths', '4 weeks', 'Fewer than 5 support requests per week'], ['Whole office', 'Zone D and the rest, all 120 people (also managers and people who work partly from home); old app switched off', 'From week 12', 'Monthly check of data and feedback']].map(([t, w, h, r], i) => `<li class="rounded-3xl ${i === 1 ? 'bg-teal-100' : 'bg-white'} p-5"><div class="flex items-baseline justify-between"><span class="font-display font-extrabold text-3xl">${i}</span><span class="text-sm font-semibold text-plum-500">${h}</span></div><p class="font-display font-semibold text-lg">${t}</p><p class="text-sm text-plum-600 mt-1">${w}</p><p class="text-sm mt-3 pt-3 border-t border-plum-800/10"><span class="text-plum-500">Next phase when</span><br>${r}</p></li>`).join('')}</ol>
+      <div class="grid md:grid-cols-2 gap-3 text-sm"><p class="rounded-2xl bg-white p-4"><b>Not all at once:</b> 80 desks in one go would block the office, and every bug would hit 120 people.</p><p class="rounded-2xl bg-white p-4"><b>Not voluntary first:</b> shared desks need one booking system. Only the watch is optional.</p></div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Five requirements and how we check them</h3>
+        <div class="mt-3">${table(['User requirement', 'How we collect or check it', 'Who we ask'], [
+          ['1. Work without back pain: the desk and chair are set up right every day', 'Before and after questionnaire about back pain (1–5), checking desk settings at check-in, sick-day numbers', 'Employees, HR manager, health and safety specialist'],
+          ['2. No headaches because of noise: quiet enough to focus', 'Noise data from the sensors and a short questionnaire about headaches and noise', 'Employees, HR manager'],
+          ['3. Easy desk booking: book a desk and check in within a minute', 'Observation while people book and check in, and app data (how long it takes)', 'Employees, IT manager'],
+          ['4. Fresh air during the whole day', 'CO₂ data from the sensors and a short questionnaire (“Is the air fresh?”)', 'Employees, office manager, finance manager (ventilation costs)'],
+          ['5. Privacy: sensors measure only noise level and CO₂ (no voices, no tracking of people), managers see only anonymous data', 'Checking with IT what data is collected and stored (GDPR), info meeting before the pilot, a questionnaire item (“Do you feel watched?”)', 'IT manager, health and safety specialist, employee representative, employees']])}</div>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Evaluation is a loop</h3>
+        <ol class="mt-4 flex flex-wrap items-center gap-2">${['Pilot in zone B', 'Measure after week 2', 'Adjust alerts and rules', 'Measure after week 4', 'Sick days after 3 months'].map((t, i, a) => `<li class="flex items-center gap-2"><span class="rounded-full bg-white px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-plum-800 text-cream-50 grid place-items-center text-xs">${i + 1}</span>${t}</span>${i < a.length - 1 ? '<i data-lucide="chevron-right" class="text-plum-300"></i>' : '<i data-lucide="rotate-ccw" class="text-plum-300"></i>'}</li>`).join('')}</ol>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">What could go wrong, and our fix</h3>
+        <div class="mt-3">${table(['Problem', 'Who is affected', 'How we prevent or handle it'], [
+          ['People forget to check in', 'Everyone: desks are released by mistake', 'Short training, a reminder 10 minutes before release, check-in with the work card'],
+          ['Fear of being watched', 'Employees', 'Info meeting before the pilot, sensors measure only the noise level, the manager sees only anonymous data'],
+          ['Wi‑Fi or app is down', 'Everyone in the office', 'Desks can still be adjusted by hand, the office manager gives out desks'],
+          ['No smartwatch or broken device', 'Some employees', 'Reminder on the phone instead, spare desk units, service contract']])}</div>
+        <p class="text-sm text-plum-600 mt-3">If the Wi‑Fi goes down, desks still work by hand. Nobody is left without a desk.</p>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">About €107,500 in year 1</h3>
+        <dl class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">${[['≈ €900', 'per employee in year 1'], ['≈ €6,000', 'a year from year 2'], ['≈ €85,000', 'back a year: less desk hunting, 1 sick day less'], ['≈ 1.3 years', 'to pay for itself']].map(([v, l], i) => `<div class="rounded-3xl ${i === 3 ? 'bg-plum-800 text-cream-50' : 'bg-white'} p-5"><dt class="sr-only">${l}</dt><dd class="font-display font-extrabold text-3xl sm:text-4xl">${v}</dd><p class="text-sm ${i === 3 ? 'text-plum-200' : 'text-plum-600'} mt-1">${l}</p></div>`).join('')}</dl>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">Will it still work in 2–3 years?</h3>
+        <ul class="mt-4 grid sm:grid-cols-3 gap-3">${[['plug', 'Open APIs', 'We swap one part, not the whole system'], ['download', 'Data export', 'Nothing is lost if we change a supplier'], ['hand', 'Desks work by hand', 'Booking is separate from the hardware']].map(([i, t, d]) => `<li class="rounded-3xl bg-white p-5"><i data-lucide="${i}" class="text-2xl text-plum-500"></i><p class="font-display font-semibold text-lg mt-2">${t}</p><p class="text-sm text-plum-600">${d}</p></li>`).join('')}</ul>
+      </div>
+    </section>
+
+    <section id="p4" class="scroll-mt-24 space-y-10">
+      <div><p class="text-coral-600 font-semibold">Part 4, presented by Zuzia Nowak</p>${H2('Kasia’s day: before and after')}</div>
+      ${table(['When', 'Before', 'With our solution'], [['7:50', 'Her booked desk is taken', 'Unused bookings released, B12 is free'], ['8:00', 'Desk and chair not adjusted', 'One tap: desk at 72 cm and a chair tip'], ['Calls', 'Clients hear background noise', 'Booth for 30 min or the quiet zone'], ['11:00', 'Where is my team?', 'Tomek on the map'], ['13:40', 'Sitting since the morning', 'Watch: stand up and drink water'], ['14:00', 'Loud, stuffy zone B', 'One alert, the manager ventilates'], ['15:00', 'Headache', 'No headache'], ['Weekly', 'Manager sees nothing', 'Anonymous team trends']].map(r => [r[0], `<span class="text-taken">${r[1]}</span>`, `<span class="text-teal-600 font-semibold">${r[2]}</span>`]))}
+      <div>
+        <h3 class="font-display font-semibold text-xl">Why Brightline should introduce it</h3>
+        <ul class="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${[['G1 + G2', 'It fixes the two top problems: the desk and the noise'], ['5 products', 'Everything can be bought today; we only connect it in one app'], ['≈ 1.3 years', 'To pay back about €107,500. About €85,000 comes back every year'], ['5+ people', 'Only anonymous data for groups of 5+, and the watch is optional']].map(([v, d]) => `<li class="rounded-3xl bg-white p-5"><p class="font-display font-extrabold text-3xl">${v}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
+      </div>
+      <div class="rounded-[32px] bg-teal-100 p-6 sm:p-8">
+        <h3 class="font-display font-bold text-2xl">Start with a 4-week pilot in zone B</h3><p class="text-plum-700 mt-1">Not everything at once: first one zone, real work, real data.</p>
+        <ol class="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${['Info meeting and GDPR information', 'Zone B: 20 desks, 1 booth, sensors', 'Measure after week 2 and week 4', 'Next zones only if the targets are met'].map((t, i) => `<li class="rounded-2xl bg-white p-4 flex gap-3"><span class="w-8 h-8 rounded-full bg-plum-800 text-cream-50 grid place-items-center font-bold shrink-0">${i + 1}</span><span class="text-sm font-semibold">${t}</span></li>`).join('')}</ol>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">The main limitations, honestly</h3>
+        <ul class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">${[['IT work', 'Connecting GoBright and Airthings needs IT: who does it, and how long does it take?'], ['Old desks', 'Desks without motors must be replaced: €48,000'], ['Check-in', 'It only works if people really book and check in'], ['4 booths', 'May not stop all the noise in a busy open space'], ['Chair and monitor', 'No motor, only a setup tip. People still adjust them by hand'], ['Own phone and watch', 'Some people will not want to use their own devices for work']].map(([t, d]) => `<li class="rounded-3xl border-2 border-plum-800/10 p-5"><p class="font-semibold">${t}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-xl">What we would do differently</h3>
+        <ul class="mt-4 grid sm:grid-cols-2 gap-3">${[['Talk to real employees earlier', 'Kasia is based on the case. We would interview real people first.'], ['Measure the noise first', 'Then decide how many booths we really need.'], ['Draw the missing screens', 'The chair tip and the booth booking step. Both are now in this app.'], ['Plan the data talk from day one', 'How we tell people what is collected, so they trust it.']].map(([t, d]) => `<li class="rounded-3xl bg-white p-5"><p class="font-semibold">${t}</p><p class="text-sm text-plum-600 mt-1">${d}</p></li>`).join('')}</ul>
+      </div>
+      <div class="rounded-[32px] bg-plum-800 text-cream-50 p-8 sm:p-12 text-center">
+        <p class="font-display font-extrabold text-4xl sm:text-5xl">Thank you!</p><p class="text-plum-200 mt-2">Questions? Try it yourself first.</p>
+        <button data-act="qr" class="mt-6 inline-flex items-center gap-2 rounded-full bg-coral-500 hover:bg-coral-600 px-6 py-3 font-semibold transition-colors"><i data-lucide="qr-code"></i>Show the QR code</button>
+        <p class="text-sm text-plum-300 mt-6">Ewelina, Hania, Zuzia Gutkowska, Zuzia Nowak, Group D</p>
+      </div>
+    </section>
+  </div></div>`;
+}
+
+/* =========================================================
+   QR screen for the audience
+   ========================================================= */
+function qrTarget() {
+  const saved = store.get('bl.qrurl', '');
+  if (saved) return saved;
+  if (PUBLIC_URL) return PUBLIC_URL;
+  if (/^https?:$/.test(location.protocol) && !/^(localhost|127\.|\[::1\])/.test(location.hostname)) return location.origin + location.pathname;
+  return '';
+}
+function qrSVG(text) {
+  const q = qrcode(0, 'M'); q.addData(text); q.make(); const n = q.getModuleCount(); const m = 2;
+  const inFinder = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+  let cells = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c) && !inFinder(r, c)) cells += `<rect x="${c}" y="${r}" width="1.02" height="1.02" rx=".12"/>`;
+  const finder = (x, y) => `<rect x="${x + .5}" y="${y + .5}" width="6" height="6" rx=".9" fill="none" stroke="#2B2440" stroke-width="1"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" rx=".45" fill="#2B2440"/>`;
+  return `<svg viewBox="${-m} ${-m} ${n + 2 * m} ${n + 2 * m}" class="w-full h-auto block" role="img" aria-label="QR code linking to ${esc(text)}"><rect x="${-m}" y="${-m}" width="${n + 2 * m}" height="${n + 2 * m}" fill="#fff"/><g fill="#2B2440">${cells}</g>${finder(0, 0)}${finder(n - 7, 0)}${finder(0, n - 7)}</svg>`;
+}
+function openQR() {
+  const url = qrTarget();
+  const hasLib = typeof qrcode === 'function';
+  $('#overlay').innerHTML = `<div class="fixed inset-0 z-[80] bg-plum-900 text-cream-50 overflow-auto rise" role="dialog" aria-modal="true" aria-label="Scan to try Brightline">
+    <div class="absolute -left-24 -bottom-24 w-80 h-80 rounded-full bg-plum-800" aria-hidden="true"></div>
+    <div class="absolute right-[8%] top-[10%] w-24 h-24 rounded-full bg-coral-500 hidden md:block" aria-hidden="true"></div>
+    <div class="absolute left-[46%] bottom-[12%] w-10 h-10 rounded-full bg-teal-400 hidden md:block" aria-hidden="true"></div>
+    <button data-act="close-overlay" class="fixed right-4 top-4 z-10 w-11 h-11 rounded-full bg-plum-700 hover:bg-plum-600 grid place-items-center text-xl" aria-label="Close"><i data-lucide="x"></i></button>
+    <div class="relative min-h-full max-w-6xl mx-auto px-4 py-14 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-center">
+      <div>
+        <p class="text-coral-300 font-semibold">Live demo, Group D</p>
+        <h2 class="font-display font-extrabold text-5xl sm:text-7xl leading-[0.98] mt-3">Grab your phone. Book a desk.</h2>
+        <p class="text-plum-100 text-lg sm:text-xl mt-5 max-w-lg">You are Kasia for a minute. Scan the code, find a green desk next to her team and check in with one tap.</p>
+        <ol class="mt-8 space-y-3 text-lg">${['Scan the code with your camera', 'Tap a green desk and book it', 'Tap to check in and watch the desk rise'].map((t, i) => `<li class="flex items-center gap-4"><span class="w-10 h-10 rounded-full ${['bg-coral-500', 'bg-free', 'bg-teal-400 text-plum-900'][i]} grid place-items-center font-display font-bold shrink-0">${i + 1}</span>${t}</li>`).join('')}</ol>
+      </div>
+      <div class="flex flex-col items-center">
+        <div class="qr-frame p-[6px] rounded-[40px] w-full max-w-[420px] shadow-lift">
+          <div class="bg-white rounded-[34px] p-6 sm:p-8">${url && hasLib ? qrSVG(url) : `<div class="aspect-square grid place-items-center text-center text-plum-800 p-4"><div><i data-lucide="qr-code" class="text-5xl text-plum-300"></i><p class="font-semibold mt-3">${hasLib ? 'Add your public link to make the code' : 'QR library could not load. Check the internet connection.'}</p><p class="text-sm text-plum-500 mt-1">This page runs locally, so a phone could not open it. Host it (Vercel or GitHub Pages), then paste the link below.</p></div></div>`}</div>
+        </div>
+        ${url ? `<p class="mt-5 font-display font-semibold text-lg sm:text-xl text-center break-all">${esc(url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</p>` : ''}
+        <div class="mt-4 flex flex-wrap justify-center gap-2">
+          ${url ? `<button data-act="copy-url" class="rounded-full bg-plum-700 hover:bg-plum-600 px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"><i data-lucide="copy"></i>Copy link</button>` : ''}
+          <button data-act="edit-url" class="rounded-full bg-plum-700 hover:bg-plum-600 px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"><i data-lucide="link"></i>${url ? 'Change link' : 'Add public link'}</button>
+        </div>
+        <form id="url-form" class="${url ? 'hidden' : ''} mt-4 w-full max-w-[420px] flex gap-2"><label class="sr-only" for="url-in">Public link</label><input id="url-in" type="url" required placeholder="https://your-app.vercel.app" value="${esc(store.get('bl.qrurl', ''))}" class="flex-1 min-w-0 rounded-full bg-white text-plum-800 px-4 py-2.5 text-sm"><button class="rounded-full bg-coral-500 px-4 py-2.5 text-sm font-semibold">Use link</button></form>
+      </div>
+    </div></div>`;
+  icons(); document.body.style.overflow = 'hidden';
+  $('#url-form').onsubmit = e => { e.preventDefault(); const v = $('#url-in').value.trim(); store.set('bl.qrurl', v); openQR(); };
+  $('#overlay [data-act="close-overlay"]').focus();
+}
+
+/* =========================================================
+   Events
+   ========================================================= */
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a, [data-act], [data-backdrop]'); if (!t) return;
+  if (t.matches('[data-backdrop]') && e.target === t) { closeOverlay(); return; }
+  if (t.dataset.desk) { selectDesk(t.dataset.desk); return; }
+  if (t.dataset.room) { state.sel = { type: 'room', id: t.dataset.room }; refreshRooms(); openSheet(); return; }
+  if (t.dataset.day) { state.dayIdx = +t.dataset.day; state.sel = null; render(); return; }
+  if (t.dataset.filter) { state.filter = t.dataset.filter; render(); return; }
+  if (t.dataset.step) { stopAutoplay(); goStep(+t.dataset.step); return; }
+  if (t.dataset.mode) { state.mode = t.dataset.mode; stopAutoplay(); render(); return; }
+  if (t.dataset.jump) { e.preventDefault(); $('#' + t.dataset.jump).scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth' }); return; }
+  if (t.dataset.go) { const g = t.dataset.go; if (g.startsWith('#')) location.hash = g; else { state.step = STEPS.findIndex(s => s.screen === g); state.mode = 'after'; if (location.hash === '#day') render(); else location.hash = '#day'; } return; }
+  const k = todayKey();
+  switch (t.dataset.act) {
+    case 'hide-hint': store.set('bl.seenHint', true); $('#hint').remove(); break;
+    case 'near-team': { const id = nearTeam(); if (!id) { toast({ title: 'No free desks that day', icon: 'info', tone: 'warn' }); break; } selectDesk(id, { scroll: true }); const el = $(`[data-desk="${id}"]`); el && el.classList.add('flash'); toast({ title: `${id} is next to your team`, body: islandOf(id).map(n => teammateAt(n)).filter(Boolean).join(' and ') ? `You would sit next to ${islandOf(id).map(n => teammateAt(n)).filter(Boolean).join(' and ')}.` : 'Closest free desk to your team.', icon: 'users', tone: 'info' }); break; }
+    case 'book': bookDesk(t.dataset.id); break;
+    case 'cancel': cancelBooking(); break;
+    case 'checkin': openCheckin(); break;
+    case 'do-tap': doTap(); break;
+    case 'tip': overlay(`<div class="w-full max-w-md bg-cream-50 rounded-[32px] p-6 shadow-lift relative" role="dialog" aria-modal="true"><button data-act="close-overlay" class="absolute right-4 top-4 w-9 h-9 rounded-full bg-white grid place-items-center" aria-label="Close"><i data-lucide="x"></i></button><h2 class="font-display font-bold text-2xl mb-4">Your setup tip</h2>${tipHTML()}<button data-act="close-overlay" class="mt-5 w-full rounded-full bg-plum-800 text-cream-50 py-3.5 font-semibold">Done</button></div>`); break;
+    case 'close-overlay': closeOverlay(); break;
+    case 'close-panel': closeSheet(); break;
+    case 'book-room': bookRoom(t.dataset.id, +t.dataset.min); break;
+    case 'end-room': endRoom(); break;
+    case 'qr': openQR(); break;
+    case 'copy-url': try { navigator.clipboard.writeText(qrTarget()); toast({ title: 'Link copied', icon: 'copy', tone: 'info' }); } catch (err) {} break;
+    case 'edit-url': $('#url-form').classList.toggle('hidden'); $('#url-in').focus(); break;
+    case 'autoplay': toggleAutoplay(); break;
+    case 'prev-step': stopAutoplay(); goStep(state.step - 1); break;
+    case 'next-step': stopAutoplay(); goStep(state.step + 1); break;
+    case 'book-b12': if (!(state.mine[k] && state.mine[k].desk === 'B12')) bookDesk(status('B12', k) === 'free' ? 'B12' : nearTeam(k), k); renderStage(); break;
+    case 'near-team-day': { const id = nearTeam(k); id && bookDesk(id, k); renderStage(); break; }
+    case 'release-day': cancelBooking(k); renderStage(); break;
+    case 'show-team': state.filter = 'team'; state.dayIdx = 0; break;
+    case 'watch-done': state.breaks++; save(); vibrate([120, 80, 120]); toast({ title: 'Nice, you stood up', body: 'Next reminder in about an hour, never during a call.', icon: 'droplet' }); renderStage(); break;
+    case 'watch-later': vibrate(60); toast({ title: 'Reminder in 15 minutes', body: 'It waits until your call or meeting ends.', icon: 'clock', tone: 'info' }); break;
+    case 'move-quiet': { const q = desksOf('Q').find(d => status(d, k) === 'free'); if (q) { const was = state.mine[k]; state.mine[k] = { desk: q, checkedIn: was ? was.checkedIn : false }; save(); toast({ title: `Moved to ${q}, quiet zone`, body: `Desk set to ${HEIGHT.sit} cm. ${was ? was.desk + ' is free for others.' : ''}`, icon: 'leaf' }); feed(`You moved to the quiet zone (${q})`, 'leaf'); } renderStage(); break; }
+    case 'stay': toast({ title: 'OK, staying in zone B', body: 'No more alerts for this zone for an hour.', icon: 'bell-off', tone: 'info' }); break;
+    case 'ventilate': ventilate(); break;
+    case 'export': exportReport(); break;
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'mgr-zone') { state.mgrZone = e.target.value; $('#spark').innerHTML = sparkline(state.mgrZone); $('#week').innerHTML = weekBars(state.mgrZone); $$('#week [data-w]').forEach(x => x.style.width = x.dataset.w + '%'); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if ($('#overlay').innerHTML) closeOverlay(); else closeSheet(); }
+  if ((e.key === 'q' || e.key === 'Q') && !/input|textarea|select/i.test(document.activeElement.tagName) && !e.metaKey && !e.ctrlKey) openQR();
+});
+$('#qr-btn').onclick = openQR;
+$('#reset-demo').onclick = () => { ['bl.mine', 'bl.vent', 'bl.breaks', 'bl.room', 'bl.seenHint'].forEach(store.del); location.hash = '#book'; location.reload(); };
+window.addEventListener('hashchange', route);
+
+/* =========================================================
+   Live simulation: other people booking, sensors, booths
+   ========================================================= */
+function simDesks() {
+  const k = todayKey(); const occ = state.occ[k];
+  const pct = bookedCount(k) / DESKS.length;
+  const selId = state.sel && state.sel.type === 'desk' ? state.sel.id : null;
+  const pool = DESKS.filter(d => d[0] !== 'Q' && !PROTECTED.has(d) && d !== selId);
+  let id, msg, icon;
+  if (pct < 0.8 && Math.random() < 0.6) {
+    const free = pool.filter(d => status(d, k) === 'free'); if (!free.length) return;
+    id = free[Math.floor(Math.random() * free.length)]; occ[id] = 'taken'; msg = `${id} was booked in ${ZONES[id[0]].name}`; icon = 'calendar-plus';
+  } else {
+    const taken = pool.filter(d => status(d, k) === 'taken'); if (!taken.length) return;
+    id = taken[Math.floor(Math.random() * taken.length)]; delete occ[id];
+    msg = Math.random() < .5 ? `${id} released: nobody checked in` : `${id} is free again`; icon = 'circle-dot';
+  }
+  feed(msg, icon);
+  if (state.view === 'book' && state.dayIdx === 0) { refreshBook([id]); const el = $(`[data-desk="${id}"]`); el && el.classList.add('flash'); }
+  $('#live-count').textContent = bookedCount();
+}
+function simSensors() {
+  for (const z of Object.keys(SENS)) {
+    const s = SENS[z];
+    s.co2 += (s.t.co2 - s.co2) * (z === 'B' && state.ventilatedAt ? .22 : .12) + rnd(-14, 14);
+    s.noise += (s.t.noise - s.noise) * .2 + rnd(-1.2, 1.2);
+    s.temp += rnd(-.05, .05);
+    HIST[z].push(Math.round(s.co2)); if (HIST[z].length > 36) HIST[z].shift();
+  }
+  $$('[data-sensor]').forEach(el => { const [z, f] = el.dataset.sensor.split('-'); el.textContent = Math.round(SENS[z][f]); });
+  $$('[data-lv]').forEach(el => { el.className = 'lv lv-' + level(el.dataset.lv); });
+  $$('[data-lvtext]').forEach(el => { const z = el.dataset.lvtext; el.textContent = `${levelText[level(z)]}, ${SENS[z].temp.toFixed(1)} °C`; });
+  $$('[data-tile]').forEach(el => { const lv = level(el.dataset.tile); el.classList.remove('border-free/50', 'border-sun-400', 'border-taken'); el.classList.add({ ok: 'border-free/50', warn: 'border-sun-400', bad: 'border-taken' }[lv]); });
+  const sp = $('#spark'); if (sp) sp.innerHTML = sparkline(state.mgrZone);
+}
+function simRooms() {
+  const nowT = new Date(); let changed = false;
+  for (const r of state.rooms) {
+    if (r.until && r.until <= nowT) {
+      r.until = null; changed = true;
+      if (state.myRoom && state.myRoom.id === r.id) { state.myRoom = null; save(); toast({ title: `Your time in ${r.name} is over`, body: 'The booth is free for the next call.', icon: 'phone-off', tone: 'info' }); }
+      else feed(`${r.name} is free again`, 'phone');
+    } else if (!r.until && r.kind === 'booth' && Math.random() < .08 && !(state.sel && state.sel.id === r.id)) {
+      r.until = addMin(nowT, 10 + Math.floor(Math.random() * 20)); changed = true; feed(`${r.name} booked for a call`, 'phone');
+    }
+  }
+  if (changed) refreshRooms();
+  else $$('[data-roomstatus]').forEach(el => { const r = state.rooms.find(x => x.id === el.dataset.roomstatus); const mine = state.myRoom && state.myRoom.id === r.id; if (r.until && !mine) el.textContent = `In use, free in ${roomLeft(r)} min`; });
+  const bu = $('#booth-use'); if (bu) bu.textContent = state.rooms.filter(r => r.kind === 'booth' && r.until).length + '/4';
+}
+(function loopDesks() { setTimeout(() => { simDesks(); loopDesks(); }, 6000 + Math.random() * 6000); })();
+setInterval(simSensors, 2500);
+setInterval(simRooms, 5000);
+
+/* ---------- start ---------- */
+feed('Zone B sensor: loud and stuffy for 17 min', 'activity');
+feed(`${bookedCount()} of 80 desks booked for today`, 'map');
+route();
+if (/[?&]present\b/.test(location.search)) openQR();
+</script>
+</body>
+</html>
